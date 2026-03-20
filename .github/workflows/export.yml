@@ -1,9 +1,7 @@
 name: export-and-branch-solution
 # Export solution from DEV environment
 #  unpack it and prepare, commit and push a git branch with the changes
- steps:
-    - name: Install Power Platform Tools
-      uses: microsoft/powerplatform-actions/actions-install@v1
+
 on:
   workflow_dispatch:
     inputs:
@@ -39,11 +37,9 @@ jobs:
     runs-on: windows-latest
     env:
       RUNNER_DEBUG: 1
-
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        lfs: true
+steps:
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1
 
     - name: who-am-i action
       uses: microsoft/powerplatform-actions/who-am-i@v1
