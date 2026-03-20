@@ -86,7 +86,6 @@ jobs:
         with:
           name: solution-output
           path: ${{ github.event.inputs.solution_folder }}/${{ github.event.inputs.solution_name }}
-
       - name: Commit changes
         shell: pwsh
         working-directory: ${{ github.workspace }}
