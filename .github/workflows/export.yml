@@ -100,7 +100,7 @@ jobs:
           git commit -m "Updates from the dev environment"
     
           # IMPORTANT: Quote the URL
-          git remote set-url origin "https://x-access-token:${{ secrets.TOKEN_GITHUB }}@github.com/${{ github.repository }}.git"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git push origin main
         }
     
