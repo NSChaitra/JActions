@@ -35,8 +35,6 @@ jobs:
   export-unpack-commit:
     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v3
     env:
       RUNNER_DEBUG: 1
 
