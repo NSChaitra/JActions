@@ -71,25 +71,41 @@ jobs:
         
     - name: commit changes
       shell: pwsh
-      run: |
-          rm -rf ${{ github.event.repository.name }}/${{ github.event.inputs.solution_name }}_unmanaged.zip
-          git config user.name "GitHub Actions Bot"
-          git config user.email "<>" 
-          git pull 
-          git add --all
-          $allowEmptyCommit = [System.Convert]::ToBoolean("${{ github.event.inputs.allow_empty_commit }}")
-          if ($allowEmptyCommit) {
-            git commit -am "${{ github.event.inputs.commit_message }}" --allow-empty
-          }
-          else {
-            git pull 
-            git commit -am "${{ github.event.inputs.commit_message }}" --allow-empty
-          }
-    - name: push to ${{ github.event.inputs.source_branch }}
-      if: github.event.inputs.branch_to_create == ''
-      run: |
-          git push origin main
-    - name: push to ${{ github.event.inputs.branch_to_create }}
-      if: github.event.inputs.branch_to_create != ''
-      run: |
-          git push --set-upstream origin ${{ github.event.inputs.branch_to_create }}
+    run: |
+      # Build the zip path safely (PowerShell friendly)
+      $zipPath = Join-Path "${{ github.event.repository.name }}" ("${{ github.event.inputs.solution_name }}_unmanaged.zip")
+
+      # Delete file if it exists (won't error if missing)
+      Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue
+
+      git config user.name "GitHub Actions Bot"
+      git config user.email "<>" 
+
+      git pull
+      git add --all
+
+      $allowEmptyCommit = [System.Convert]::ToBoolean("${{ github.event.inputs.allow_empty_commit }}")
+
+      if ($allowEmptyCommit) {
+        git commit -m "${{ github.event.inputs.commit_message }}" --allow-empty
+      }
+      else {
+        # Only commit if there are staged changes
+        if (git diff --cached --quiet) {
+          Write-Host "No changes to commit."
+        }
+        else {
+          git commit -m "${{ github.event.inputs.commit_message }}"
+        }
+      }
+ - name: push to ${{ github.event.inputs.source_branch }}
+  if: github.event.inputs.branch_to_create == ''
+  shell: pwsh
+  run: |
+      git push origin main
+
+  - name: push to ${{ github.event.inputs.branch_to_create }}
+  if: github.event.inputs.branch_to_create != ''
+  shell: pwsh
+  run: |
+      git push --set-upstream origin ${{ github.event.inputs.branch_to_create }}
