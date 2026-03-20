@@ -77,5 +77,5 @@ jobs:
         git checkout main
         git add --all 
         git commit -m "Updates from the dev environment"
-        git remote set-url origin https://x-access-token:${{ secrets.TOKEN_GITHUB }}@github.com/${{ github.repository }}
+        git remote set-url origin "https://x-access-token:${{ secrets.TOKEN_GITHUB }}@github.com/${{ github.repository }}.git"
         git push
