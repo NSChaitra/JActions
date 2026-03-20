@@ -1,7 +1,9 @@
 name: export-and-branch-solution
 # Export solution from DEV environment
 #  unpack it and prepare, commit and push a git branch with the changes
-
+ steps:
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1
 on:
   workflow_dispatch:
     inputs:
