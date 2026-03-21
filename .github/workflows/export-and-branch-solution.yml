@@ -27,7 +27,7 @@ jobs:
       - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
-          environment-url: 'https://t365-qa.crm.dynamics.com'
+          environment-url: 'https://org26907746.crm.dynamics.com/'
           app-id: ${{ secrets.CLIENT_ID }}
           client-secret: ${{ secrets.PASSWORD }}
           tenant-id: ${{ secrets.TENANT_ID }}
