@@ -19,55 +19,53 @@ env:
   TENANT_ID: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
 permissions:
   contents: write
+
 jobs:
-  export-from-dev:
+  export_unpack_commit:
     runs-on: ubuntu-latest
-    # or you can say runs-on: ubuntu-latest
-    env:
-      RUNNER_DEBUG: 1
 
     steps:
-    - name: Install Power Platform Tools
-      uses: microsoft/powerplatform-actions/actions-install@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: who-am-i action
-      uses: microsoft/powerplatform-actions/who-am-i@v1
-      with:
-        environment-url: ${{env.ENVIRONMENT_URL}}
-        app-id: ${{env.CLIENT_ID}}
-        client-secret: ${{ secrets.PASSWORD }}
-        tenant-id: ${{env.TENANT_ID}}
+      # ✅ MUST HAVE: Installs PAC and sets PAC path for later steps
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
+      # (Optional) sanity check
+      - name: Verify pac
+        shell: bash
+        run: |
+          set -e
+          echo "PAC PATH => $POWERPLATFORMTOOLS_PACPATH"
+          ls -la "$(dirname "$POWERPLATFORMTOOLS_PACPATH")" || true
+          "$POWERPLATFORMTOOLS_PACPATH" --version
 
-    - name: export-solution action
-      uses: microsoft/powerplatform-actions/export-solution@v1
-      with:
-        environment-url: ${{env.ENVIRONMENT_URL}}
-        app-id: ${{env.CLIENT_ID}}
-        client-secret: ${{ secrets.PASSWORD }}
-        tenant-id: ${{env.TENANT_ID}}
-        solution-name: Test
-        solution-output-file: 'Test.zip'
-        working-directory: 'out'
+      - name: WhoAmI (optional)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          environment-url: ${{ secrets.ENVIRONMENT_URL }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
 
-    - name: unpack-solution action
-      uses: microsoft/powerplatform-actions/unpack-solution@v1
-      with:
-        solution-file: 'out/Test.zip'
-        solution-folder: 'out/solutiond/Unmanaged/Test'
-        solution-type: 'Unmanaged'
-        overwrite-files: true
-    
-    
-    - name: Git Fetch and Commit 
-      run: |
-        git fetch --all  
-        git config --global user.email "no-reply@github.com"
-        git config --global user.name "GitHub Actions"
-        git checkout main
-        git add --all 
-        git commit -m "Updates from the dev environment"
-        git remote set-url origin https://x-access-token:${{ secrets.TOKEN_GITHUB }}@github.com/${{ github.repository }}
-        git push
+      - name: Export solution
+        uses: microsoft/powerplatform-actions/export-solution@v1
+        with:
+          environment-url: ${{ secrets.ENVIRONMENT_URL }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          solution-name: ${{ github.event.inputs.solution_unique_name }} # MUST be unique name
+          solution-output-file: out/${{ github.event.inputs.solution_name }}.zip
+          managed: false
 
-    
+      - name: Unpack solution
+        uses: microsoft/powerplatform-actions/unpack-solution@v1
+        with:
+          solution-input-file: out/${{ github.event.inputs.solution_name }}.zip
+          solution-target-folder: solutions/${{ github.event.inputs.solution_name }}
+          solution-type: Unmanaged
+``
