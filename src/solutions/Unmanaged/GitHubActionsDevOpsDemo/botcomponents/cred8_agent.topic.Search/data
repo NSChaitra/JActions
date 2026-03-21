@@ -1,0 +1,34 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnUnknownIntent
+  id: main
+  priority: -1
+  actions:
+    - kind: SearchAndSummarizeContent
+      id: search-content
+      variable: Topic.Answer
+      userInput: =System.Activity.Text
+      fileSearchDataSource:
+        searchFilesMode:
+          kind: DoNotSearchFiles
+
+      knowledgeSources:
+        kind: SearchSpecificKnowledgeSources
+        knowledgeSources:
+          - cred8_agent.topic.CopilotStudio_JptgkeKO28hLwGsU6hEZX
+          - cred8_agent.topic.powerapps_inE4mpNP8r6DqqPXQSLja
+          - cred8_agent.topic.SitePages_uqEyuxYT7RWNQTY61Fs1J
+
+      sharePointSearchDataSource:
+        sites:
+          - "https://uhgazure.sharepoint.com/sites/PowerPlatformCoE/SitePages/CopilotStudio.aspx"
+
+    - kind: ConditionGroup
+      id: has-answer-conditions
+      conditions:
+        - id: has-answer
+          condition: =!IsBlank(Topic.Answer)
+          actions:
+            - kind: EndDialog
+              id: end-topic
+              clearTopicQueue: true
