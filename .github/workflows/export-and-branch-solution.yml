@@ -1,70 +1,51 @@
-name: export-and-commit-solution
-# Export solution from DEV environment
-#  unpack it and prepare, commit and push a git branch with the changes
+name: export-add-commit-and-push-solution-to-branch
 
 on:
-  workflow_dispatch:
-    inputs:
-      # Change this value
-      solution_name:
-        description: 'name of the solution to worked on from Power Platform'
-        required: true
-        default: Test 
-    
-      
-env:
-#edit your values here
-  ENVIRONMENT_URL: 'https://org26907746.crm.dynamics.com/'
-  CLIENT_ID: '4fec5240-fd45-408b-8276-d60c97798c49'
-  TENANT_ID: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
-permissions:
-  contents: write
+   workflow_dispatch:
 
 jobs:
-  export_unpack_commit:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
         with:
-          fetch-depth: 0
-
-      # ✅ MUST HAVE: Installs PAC and sets PAC path for later steps
+          lfs: true
+        
+      - name: who-am-i action
+        uses: microsoft/powerplatform-actions/who-am-i@v0
+        with:
+          environment-url: 'https://org26907746.crm.dynamics.com/'
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+        
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # (Optional) sanity check
-      - name: Verify pac
-        shell: bash
-        run: |
-          set -e
-          echo "PAC PATH => $POWERPLATFORMTOOLS_PACPATH"
-          ls -la "$(dirname "$POWERPLATFORMTOOLS_PACPATH")" || true
-          "$POWERPLATFORMTOOLS_PACPATH" --version
-
-      - name: WhoAmI (optional)
-        uses: microsoft/powerplatform-actions/who-am-i@v1
-        with:
-          environment-url: ${{ secrets.ENVIRONMENT_URL }}
-          tenant-id: ${{ secrets.TENANT_ID }}
-          app-id: ${{ secrets.CLIENT_ID }}
-          client-secret: ${{ secrets.CLIENT_SECRET }}
-
-      - name: Export solution
+      - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
-          environment-url: ${{ secrets.ENVIRONMENT_URL }}
-          tenant-id: ${{ secrets.TENANT_ID }}
+          environment-url: 'https://t365-qa.crm.dynamics.com'
           app-id: ${{ secrets.CLIENT_ID }}
-          client-secret: ${{ secrets.CLIENT_SECRET }}
-          solution-name: ${{ github.event.inputs.solution_unique_name }} # MUST be unique name
-          solution-output-file: out/${{ github.event.inputs.solution_name }}.zip
-          managed: false
+          client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          solution-name: Test
+          solution-output-file: 'out/Unmanaged/GitHubActionsDevOpsDemo.zip'
 
-      - name: Unpack solution
+      - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
-          solution-input-file: out/${{ github.event.inputs.solution_name }}.zip
-          solution-target-folder: solutions/${{ github.event.inputs.solution_name }}
-          solution-type: Unmanaged
+          solution-file: 'out/Unmanaged/GitHubActionsDevOpsDemo.zip'
+          solution-folder: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo'
+          solution-type: 'Unmanaged'
+          overwrite-files: true
+
+      - name: Prepare solution changes for check-in into source control
+        uses: microsoft/powerplatform-actions/branch-solution@v1
+        with:
+          solution-folder: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo'
+          solution-target-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
+          repo-token: ${{ secrets.TOKEN_GITHUB }}
+          allow-empty-commit: true
