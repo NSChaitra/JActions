@@ -68,4 +68,3 @@ jobs:
           solution-input-file: out/${{ github.event.inputs.solution_name }}.zip
           solution-target-folder: solutions/${{ github.event.inputs.solution_name }}
           solution-type: Unmanaged
-``
