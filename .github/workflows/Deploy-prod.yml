@@ -18,7 +18,7 @@ jobs:
       uses: microsoft/powerplatform-actions/pack-solution@v0
       with:
         solution-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
-        solution-file: 'out/solutions/Managed/GitHubActionsDevOpsDemo.zip'
+        solution-file: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo.zip'
         solution-type: Unmanaged
 
     - name: Upload artifact store the release solution
@@ -42,6 +42,6 @@ jobs:
         app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
         client-secret: ${{ secrets.PASSWORD }}
         tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
-        solution-file: 'out/release/GitHubActionsDevOpsDemo.zip'
+        solution-file: 'out/release/Managed/GitHubActionsDevOpsDemo.zip'
         force-overwrite: true
         publish-changes: true
