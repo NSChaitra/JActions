@@ -92,7 +92,7 @@ jobs:
         run: |
           if (!(Test-Path ".git")) { throw "Not a git repository (checkout missing)." }
 
-          git config user.email "no-reply@github.com"
+          git config user.email "no-reply@github.com" 
           git config user.name  "GitHub Actions"
 
           git checkout main
