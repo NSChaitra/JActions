@@ -46,14 +46,14 @@ jobs:
         app-id: ${{env.CLIENT_ID}}
         client-secret: ${{ secrets.PASSWORD }}
         tenant-id: ${{env.TENANT_ID}}
-        solution-name: ${{ github.event.inputs.solution_name }}
-        solution-output-file: ${{ github.event.repository.name}}/${{ github.event.inputs.solution_name }}_unmanaged.zip
+        solution-name: Test
+        solution-output-file: Test.zip
 
     - name: unpack-solution action
       uses: microsoft/powerplatform-actions/unpack-solution@v1
       with:
-        solution-file: ${{ github.event.repository.name}}/${{ github.event.inputs.solution_name }}_unmanaged.zip
-        solution-folder: ${{ github.event.repository.name}}/${{ github.event.inputs.solution_name }}
+        solution-file: 'out\Test.zip'
+        solution-folder: 'out\solutiond\Unmanaged\Test'
         solution-type: 'Unmanaged'
         overwrite-files: true
     
