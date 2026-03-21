@@ -35,7 +35,7 @@ jobs:
       with:
         environment-url: ${{env.ENVIRONMENT_URL}}
         app-id: ${{env.CLIENT_ID}}
-        client-secret: ${{ secrets.PowerPlatformSPN }}
+        client-secret: ${{ secrets.PASSWORD }}
         tenant-id: ${{env.TENANT_ID}}
 
 
@@ -66,7 +66,7 @@ jobs:
         git checkout main
         git add --all 
         git commit -m "Updates from the dev environment"
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+        git remote set-url origin https://x-access-token:${{ secrets.TOKEN_GITHUB }}@github.com/${{ github.repository }}
         git push
 
     
