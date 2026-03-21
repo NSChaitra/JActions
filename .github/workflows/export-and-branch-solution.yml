@@ -47,7 +47,8 @@ jobs:
         client-secret: ${{ secrets.PASSWORD }}
         tenant-id: ${{env.TENANT_ID}}
         solution-name: Test
-        solution-output-file: Test.zip
+        solution-output-file: 'Test.zip'
+        working-directory: 'out'
 
     - name: unpack-solution action
       uses: microsoft/powerplatform-actions/unpack-solution@v1
