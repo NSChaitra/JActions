@@ -31,9 +31,9 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: managedSolutions
-        path: out/release/
+        path: out/release/Managed
 
-    - run: get-childitem .\out\release\
+    - run: get-childitem .\out\release\Managed
     
     - name: Import solution as Managed to production environment
       uses: microsoft/powerplatform-actions/import-solution@v0
