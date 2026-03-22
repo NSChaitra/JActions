@@ -51,16 +51,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        lfs: true
-
+    - name: Install Power Platform Tools (PAC)  # ✅ PAC install is here
+      uses: microsoft/powerplatform-actions/actions-install@v1
     - name: Pack solution
       uses: microsoft/powerplatform-actions/pack-solution@v1
       with:
         solution-folder: ${{ github.event.inputs.solution_source_folder}}/${{ github.event.inputs.solution_name }}
         solution-file: ${{ github.event.inputs.solution_outbound_folder}}/${{ github.event.inputs.solution_name }}.zip
         solution-type: Unmanaged
-
+ 
+    - name: Install Power Platform Tools (PAC)  # ✅ PAC install is here
+      uses: microsoft/powerplatform-actions/actions-install@v1
     - name: Import solution as unmanaged to build env
       uses: microsoft/powerplatform-actions/import-solution@v1
       with:
@@ -71,7 +72,9 @@ jobs:
         solution-file: ${{ github.event.inputs.solution_outbound_folder}}/${{ github.event.inputs.solution_name }}.zip
         force-overwrite: true
         publish-changes: true
-
+  
+    - name: Install Power Platform Tools (PAC)  # ✅ PAC install is here
+      uses: microsoft/powerplatform-actions/actions-install@v1
     - name: Export solution as managed
       uses: microsoft/powerplatform-actions/export-solution@v1
       with:
@@ -105,6 +108,9 @@ jobs:
       with:
         name: managedSolutions
         path: ${{ github.event.inputs.solution_release_folder}}
+   
+    - name: Install Power Platform Tools (PAC)  # ✅ PAC install is here
+      uses: microsoft/powerplatform-actions/actions-install@v1
     - name: Import solution to prod env
       uses: microsoft/powerplatform-actions/import-solution@v1
       with:
