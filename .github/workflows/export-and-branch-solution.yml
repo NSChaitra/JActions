@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          lfs: true
+          lfs: true 
         
       - name: who-am-i action
         uses: microsoft/powerplatform-actions/who-am-i@v0
