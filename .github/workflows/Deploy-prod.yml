@@ -15,7 +15,7 @@ jobs:
         lfs: true
 
     - name: Pack solution
-      uses: microsoft/powerplatform-actions/pack-solution@v1
+      uses: microsoft/powerplatform-actions/pack-solution@v0
       with:
         solution-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
         solution-file: 'out/solutions/Managed/GitHubActionsDevOpsDemo.zip'
@@ -36,7 +36,7 @@ jobs:
     - run: get-childitem .\out\release\
     
     - name: Import solution as Managed to production environment
-      uses: microsoft/powerplatform-actions/import-solution@v1
+      uses: microsoft/powerplatform-actions/import-solution@v0
       with:
         environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
         app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
