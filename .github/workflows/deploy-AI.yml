@@ -64,4 +64,3 @@ jobs:
           solution-file: "out/release/Managed/GitHubActionsDevOpsDemo.zip"
           force-overwrite: true
           publish-changes: true
-``
