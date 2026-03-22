@@ -8,12 +8,12 @@ on:
 jobs:
   deploy-solution:
     runs-on: windows-latest
-    
+        
     steps:
     - uses: actions/checkout@v2
       with:
         lfs: true
-
+    
     - name: Pack solution
       uses: microsoft/powerplatform-actions/pack-solution@v0
       with:
@@ -31,9 +31,9 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: managedSolutions
-        path: out/
+        path: out/Managed
 
-    - run: get-childitem .\out\
+    - run: get-childitem .\out\Managed
     
     - name: Import solution as Managed to production environment
       uses: microsoft/powerplatform-actions/import-solution@v0
