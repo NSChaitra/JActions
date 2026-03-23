@@ -1,7 +1,0 @@
-kind: KnowledgeSourceConfiguration
-source:
-  kind: FederatedStructuredSearchSource
-  connectionProperties:
-    mode: Invoker
-
-  skillConfiguration: SOP_c8ejqBPc7VnbfSy92gCzq
