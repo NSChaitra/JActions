@@ -33,7 +33,7 @@ jobs:
           client-secret: ${{ secrets.PASSWORD }}
           tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
           solution-name: Test
-          solution-output-file: 'out/Unmanaged/GitHubActionsDevOpsDemo.zip'
+          solution-output-file: 'out/Managed/GitHubActionsDevOpsDemo.zip'
 
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
@@ -41,14 +41,14 @@ jobs:
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
           solution-file: 'out/Unmanaged/GitHubActionsDevOpsDemo.zip'
-          solution-folder: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo'
-          solution-type: 'Unmanaged'
+          solution-folder: 'out/solutions/Managed/GitHubActionsDevOpsDemo'
+          solution-type: 'Managed'
           overwrite-files: true
 
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
           solution-folder: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo'
-          solution-target-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
+          solution-target-folder: 'src/solutions/Managed/GitHubActionsDevOpsDemo'
           repo-token: ${{ secrets.TOKEN_GITHUB }}
           allow-empty-commit: true
