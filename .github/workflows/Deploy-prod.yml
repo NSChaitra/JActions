@@ -10,10 +10,11 @@ jobs:
     runs-on: windows-latest
         
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         lfs: true
-    
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1 
     - name: Pack solution
       uses: microsoft/powerplatform-actions/pack-solution@v1
       with:
@@ -34,7 +35,8 @@ jobs:
         path: out/Managed
 
     - run: get-childitem .\out\Managed
-    
+    - name: Install Power Platform Tools
+      uses: microsoft/powerplatform-actions/actions-install@v1 
     - name: Import solution as Managed to production environment
       uses: microsoft/powerplatform-actions/import-solution@v1
       with:
