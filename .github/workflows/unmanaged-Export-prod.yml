@@ -20,20 +20,20 @@ jobs:
       - name: WhoAmI (validate connection)
         uses: microsoft/powerplatform-actions/who-am-i@v1
         with:
-          ENVIRONMENT_URL: 'https://org26907746.crm.dynamics.com/'
-          CLIENT_ID: '4fec5240-fd45-408b-8276-d60c97798c49'
-          TENANT_ID: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          environment-url: 'https://org26907746.crm.dynamics.com/'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
           
 
       # ✅ Export as UNMANAGED (this prevents the mismatch with unpack)
       - name: Export Solution (Unmanaged)
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
-          ENVIRONMENT_URL: 'https://org26907746.crm.dynamics.com/'
-          CLIENT_ID: '4fec5240-fd45-408b-8276-d60c97798c49'
-          TENANT_ID: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          environment-url: 'https://org26907746.crm.dynamics.com/'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
           solution-name: Test
           solution-output-file: 'out/solutions/Unmanaged/Test_unmanaged.zip'
           managed: false
