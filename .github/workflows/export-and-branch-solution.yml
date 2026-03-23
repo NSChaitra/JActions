@@ -40,7 +40,7 @@ jobs:
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
-          solution-file: 'out/Unmanaged/GitHubActionsDevOpsDemo.zip'
+          solution-file: 'out/Managed/GitHubActionsDevOpsDemo.zip'
           solution-folder: 'out/solutions/Managed/GitHubActionsDevOpsDemo'
           solution-type: 'Managed'
           overwrite-files: true
@@ -48,7 +48,7 @@ jobs:
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
-          solution-folder: 'out/solutions/Unmanaged/GitHubActionsDevOpsDemo'
+          solution-folder: 'out/solutions/Managed/GitHubActionsDevOpsDemo'
           solution-target-folder: 'src/solutions/Managed/GitHubActionsDevOpsDemo'
           repo-token: ${{ secrets.TOKEN_GITHUB }}
           allow-empty-commit: true
