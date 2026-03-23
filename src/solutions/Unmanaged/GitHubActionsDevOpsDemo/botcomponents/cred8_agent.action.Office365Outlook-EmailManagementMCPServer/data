@@ -1,0 +1,12 @@
+kind: TaskDialog
+modelDisplayName: Email Management MCP Server
+modelDescription: This MCP server manages email messages from your Office 365 account
+action:
+  kind: InvokeExternalAgentTaskAction
+  connectionReference: cred8_agent.shared_office365.shared-office365-70d7a66c-8f17-45af-89e6-2d8e7822344f
+  connectionProperties:
+    mode: Invoker
+
+  operationDetails:
+    kind: ModelContextProtocolMetadata
+    operationId: mcp_EmailsManagement
