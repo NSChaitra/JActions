@@ -1,0 +1,4 @@
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://uhgazure.sharepoint.com/sites/PowerPlatformCoE/Power%20Platform%20Admin%20Documentation/KTVideos
