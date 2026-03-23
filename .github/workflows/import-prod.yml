@@ -1,0 +1,51 @@
+name: deploy-solution-to-prod
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-solution:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install Power Platform Tools (PAC)
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      # ✅ Pack Managed from the Unmanaged solution folder stored in repo
+      - name: Pack solution (Managed) - Test
+        uses: microsoft/powerplatform-actions/pack-solution@v1
+        with:
+          solution-folder: 'src/solutions/Unmanaged/Test'
+          solution-file: 'out/solutions/Managed/Test_managed.zip'
+          solution-type: 'Managed'
+
+      - name: Verify packed ZIP exists
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Force out
+          if (-not (Test-Path "out/solutions/Managed/Test_managed.zip")) {
+            throw "Managed ZIP not found: out/solutions/Managed/Test_managed.zip"
+          }
+
+      # ✅ Import Managed to Production
+      - name: Import solution (Managed) to Production - Test
+        uses: microsoft/powerplatform-actions/import-solution@v1
+        with:
+        environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
+        app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+        client-secret: ${{ secrets.PASSWORD }}
+        tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          solution-file: 'out/solutions/Managed/Test_managed.zip'
+          force-overwrite: true
+          publish-changes: true
+``
