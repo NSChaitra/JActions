@@ -1,0 +1,10 @@
+<botcomponent schemaname="cred8_agent.action.Office365Outlook-EmailManagementMCPServer">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Office 365 Outlook - Email Management MCP Server</name>
+  <parentbotid>
+    <schemaname>cred8_agent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

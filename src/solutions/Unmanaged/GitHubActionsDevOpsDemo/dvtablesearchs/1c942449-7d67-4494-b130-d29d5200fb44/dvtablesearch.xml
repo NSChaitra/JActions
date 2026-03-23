@@ -1,0 +1,29 @@
+<dvtablesearch dvtablesearchid="1c942449-7d67-4494-b130-d29d5200fb44">
+  <connectionreference>
+    <connectionreferencelogicalname>cred8_agent.cr.pQqWyZUY</connectionreferencelogicalname>
+  </connectionreference>
+  <iscustomizable>0</iscustomizable>
+  <knowledgeconfig>{
+  "$kind": "IngestionBasedGraphSearchConfiguration",
+  "driveItems": [
+    {
+      "$kind": "GraphDriveItemSyncDetails",
+      "displayName": "SOP",
+      "webUrl": "https://uhgazure.sharepoint.com/sites/PowerPlatformCoE/Power%20Platform%20Admin%20Documentation/SOP",
+      "driveId": "b!0e7aenXzcEqe24Ja6KyIi6YHE5aT82pMiF8g8RhCVrrB2xYWSt4kQbujWePIBQBI",
+      "itemId": "01GFC2HIFDSSRNQIFIC5FJVYJ2I7CETSHB",
+      "sharepointIds": {
+        "$kind": "SharepointIds",
+        "webId": "961307a6-f393-4c6a-885f-20f1184256ba",
+        "listId": "1616dbc1-de4a-4124-bba3-59e3c8050048",
+        "siteId": "7adaeed1-f375-4a70-9edb-825ae8ac888b",
+        "siteUrl": "https://uhgazure.sharepoint.com/sites/PowerPlatformCoE"
+      }
+    }
+  ]
+}</knowledgeconfig>
+  <name>SOP_c8ejqBPc7VnbfSy92gCzq</name>
+  <searchtype>1</searchtype>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</dvtablesearch>

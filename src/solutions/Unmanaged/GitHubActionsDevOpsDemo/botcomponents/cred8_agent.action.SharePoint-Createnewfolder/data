@@ -1,0 +1,15 @@
+kind: TaskDialog
+modelDisplayName: Create new folder
+modelDescription: Creates a new folder or folder path.
+outputs:
+  - propertyName: Response
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: cred8_agent.shared_sharepointonline.shared-sharepointonl-6bb0ddff-6873-4928-8134-c0dd952b5a9c
+  connectionProperties:
+    mode: Invoker
+
+  operationId: CreateNewFolder
+
+outputMode: All
