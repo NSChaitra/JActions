@@ -21,15 +21,28 @@ jobs:
       - name: Install Power Platform Tools (PAC)
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # ✅ Pack Managed from the Unmanaged solution folder stored in repo
-      - name: Pack solution (Managed) - Test
-        uses: microsoft/powerplatform-actions/pack-solution@v1
+      # ✅ (Recommended) Validate connection to SOURCE env
+      - name: WhoAmI - Source Environment
+        uses: microsoft/powerplatform-actions/who-am-i@v1
         with:
-          solution-folder: 'src/solutions/Unmanaged/Test'
-          solution-file: 'out/solutions/Managed/Test_managed.zip'
-          solution-type: 'Managed'
+          environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          
+      # ✅ Export Managed from SOURCE env (this creates a true managed package)
+      - name: Export Solution (Managed) - Test
+        uses: microsoft/powerplatform-actions/export-solution@v1
+        with:
+          environment-url: ${{ secrets.SOURCE_ENV_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          solution-name: Test
+          solution-output-file: 'out/solutions/Managed/Test_managed.zip'
+          managed: true
 
-      - name: Verify packed ZIP exists
+      - name: Verify managed ZIP exists
         shell: pwsh
         run: |
           Get-ChildItem -Recurse -Force out
@@ -37,7 +50,7 @@ jobs:
             throw "Managed ZIP not found: out/solutions/Managed/Test_managed.zip"
           }
 
-      # ✅ Import Managed to Production
+      # ✅ Import Managed into PRODUCTION
       - name: Import solution (Managed) to Production - Test
         uses: microsoft/powerplatform-actions/import-solution@v1
         with:
