@@ -1,4 +1,4 @@
-name: deploy-solution-to-prod
+asname: deploy-solution-to-prod
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
       with:
         solution-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
         solution-file: 'out/solutions/Managed/GitHubActionsDevOpsDemo.zip'
-        solution-type: Managed
+        solution-type: unmanaged
 
     - name: Upload artifact store the release solution
       uses: actions/upload-artifact@v4
