@@ -1,0 +1,8 @@
+<botcomponent_connectionreferenceset>
+  <botcomponent_connectionreference botcomponentid.schemaname="cred8_agent.action.Office365Outlook-EmailManagementMCPServer" connectionreferenceid.connectionreferencelogicalname="cred8_agent.shared_office365.shared-office365-70d7a66c-8f17-45af-89e6-2d8e7822344f">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="cred8_agent.action.SharePoint-Createnewfolder" connectionreferenceid.connectionreferencelogicalname="cred8_agent.shared_sharepointonline.shared-sharepointonl-6bb0ddff-6873-4928-8134-c0dd952b5a9c">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+</botcomponent_connectionreferenceset>

@@ -1,0 +1,4 @@
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://uhgazure.sharepoint.com/sites/PowerPlatformCoE/Lists/PowerPlatformEnvironment/admin.aspx
