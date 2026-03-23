@@ -20,7 +20,7 @@ jobs:
       with:
         solution-folder: 'src/solutions/Unmanaged/GitHubActionsDevOpsDemo'
         solution-file: 'out/solutions/Managed/GitHubActionsDevOpsDemo.zip'
-        solution-type: Unmanaged
+        solution-type: Managed
 
     - name: Upload artifact store the release solution
       uses: actions/upload-artifact@v4
