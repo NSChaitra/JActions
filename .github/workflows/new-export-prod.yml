@@ -1,0 +1,60 @@
+name: export-add-commit-and-push-solution-to-branchto-prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Install PAC once
+      - name: Install Power Platform Tools (PAC)
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: WhoAmI (validate connection)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          environment-url: ${{ secrets.DEV_ENV_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+
+      # ✅ Export as UNMANAGED (this prevents the mismatch with unpack)
+      - name: Export Solution (Unmanaged)
+        uses: microsoft/powerplatform-actions/export-solution@v1
+        with:
+          environment-url: ${{ secrets.DEV_ENV_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          solution-name: Test
+          solution-output-file: 'out/solutions/Unmanaged/Test_unmanaged.zip'
+          managed: false
+
+      - name: List exported files (debug)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Force out
+
+      # ✅ Unpack as UNMANAGED (matches exported ZIP type)
+      - name: Unpack Solution (Unmanaged)
+        uses: microsoft/powerplatform-actions/unpack-solution@v1
+        with:
+          solution-file: 'out/solutions/Unmanaged/Test_unmanaged.zip'
+          solution-folder: 'out/solutions/Unmanaged/Test'
+          solution-type: 'Unmanaged'
+          overwrite-files: true
+
+      - name: Prepare solution changes for check-in into source control
+        uses: microsoft/powerplatform-actions/branch-solution@v1
+        with:
+          solution-folder: 'out/solutions/Unmanaged/Test'
+          solution-target-folder: 'src/solutions/Unmanaged/Test'
+          repo-token: ${{ secrets.TOKEN_GITHUB }}
+          allow-empty-commit: true
