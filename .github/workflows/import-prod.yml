@@ -34,10 +34,10 @@ jobs:
       - name: Export Solution (Managed) - Test
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
-          environment-url: ${{ secrets.SOURCE_ENV_URL }}
-          app-id: ${{ secrets.CLIENT_ID }}
-          client-secret: ${{ secrets.CLIENT_SECRET }}
-          tenant-id: ${{ secrets.TENANT_ID }}
+          environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
           solution-name: Test
           solution-output-file: 'out/solutions/Managed/Test_managed.zip'
           managed: true
