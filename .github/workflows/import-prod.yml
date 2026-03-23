@@ -25,7 +25,7 @@ jobs:
       - name: WhoAmI - Source Environment
         uses: microsoft/powerplatform-actions/who-am-i@v1
         with:
-          environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
+          environment-url: 'https://org26907746.crm.dynamics.com/'
           app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
           tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
@@ -34,7 +34,7 @@ jobs:
       - name: Export Solution (Managed) - Test
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
-          environment-url: 'https://powerplatcoe-old.crm.dynamics.com/'
+          environment-url: 'https://org26907746.crm.dynamics.com/'
           app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
           tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
