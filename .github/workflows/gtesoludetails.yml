@@ -1,4 +1,4 @@
-name: Export All Solution Details (Inventory + Optional ZIPs)
+name: Export All new Solution Details (Inventory + Optional ZIPs)
 
 on:
   workflow_dispatch:
@@ -43,27 +43,39 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------
-      # ✅ INSTALL PAC CLI THE RIGHT WAY (winget)
+      # ✅ Install PAC CLI via .NET tool (no Store dependency)
       # -------------------------------------------------
-      - name: Install Power Platform CLI (PAC)
+      - name: Install Power Platform CLI (PAC) - .NET Tool
         shell: pwsh
         run: |
-          winget install --id Microsoft.PowerPlatformCLI `
-            --accept-source-agreements `
-            --accept-package-agreements
+          $ErrorActionPreference = "Stop"
+
+          dotnet --info
+
+          # Install PAC CLI as dotnet global tool (recommended & simplest)
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+          # Ensure dotnet tools path is available to subsequent steps
+          $toolPath = "$env:USERPROFILE\.dotnet\tools"
+          echo $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify pac
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
           where.exe pac
           pac --version
 
       # -------------------------------------------------
-      # ✅ AUTHENTICATE (SERVICE PRINCIPAL)
+      # ✅ Authenticate using Service Principal
       # -------------------------------------------------
       - name: Authenticate to Power Platform
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
           pac auth create `
             --url "$env:PP_ENV_URL" `
             --tenant "$env:PP_TENANT_ID" `
@@ -72,9 +84,6 @@ jobs:
 
           pac auth list
 
-      # -------------------------------------------------
-      # ✅ PREPARE OUTPUT
-      # -------------------------------------------------
       - name: Create output folders
         shell: pwsh
         run: |
@@ -82,12 +91,16 @@ jobs:
           New-Item -ItemType Directory -Force -Path out/exports | Out-Null
 
       # -------------------------------------------------
-      # 1️⃣ EXPORT ALL SOLUTION INVENTORY
+      # 1️⃣ Inventory: JSON + CSV
       # -------------------------------------------------
       - name: Export solution inventory (JSON + CSV)
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
           try {
+            Write-Host "Trying JSON output..."
             $solutions = pac solution list --json | ConvertFrom-Json
             $solutions = $solutions | ForEach-Object {
               [pscustomobject]@{
@@ -97,10 +110,11 @@ jobs:
                 IsManaged   = $_.isManaged
               }
             }
-          }
-          catch {
+          } catch {
+            Write-Host "JSON not supported – parsing table output..."
             $lines = pac solution list | Out-String
             $rows = $lines -split "`r?`n" | Select-Object -Skip 2
+
             $solutions = foreach ($row in $rows) {
               $parts = ($row -split "\s{2,}") | Where-Object { $_ }
               if ($parts.Count -ge 4) {
@@ -114,18 +128,21 @@ jobs:
             }
           }
 
-          $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json
-          $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv
+          $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json -Encoding utf8
+          $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv -Encoding utf8
 
           Write-Host "Total solutions:" $solutions.Count
 
       # -------------------------------------------------
-      # 2️⃣ OPTIONAL: EXPORT ALL SOLUTIONS AS ZIPs
+      # 2️⃣ Optional: Export ZIPs
       # -------------------------------------------------
       - name: Export solution ZIPs
         if: ${{ inputs.export_zips == 'true' }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
           $solutions = Get-Content out/solution_inventory.json | ConvertFrom-Json
 
           foreach ($s in $solutions) {
@@ -147,9 +164,6 @@ jobs:
             }
           }
 
-      # -------------------------------------------------
-      # ✅ UPLOAD ARTIFACTS
-      # -------------------------------------------------
       - name: Upload solution inventory
         uses: actions/upload-artifact@v4
         with:
