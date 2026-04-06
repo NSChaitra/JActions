@@ -46,8 +46,8 @@ jobs:
         uses: microsoft/powerplatform-actions/actions-install@v1
 
       # Authenticate using Service Principal (recommended for automation)
-      - name: Authenticate to Power Platform
-        uses: microsoft/powerplatform-actions/authenticate@v1
+      - name: WhoAmI (connection test)
+        uses: microsoft/powerplatform-actions/whoami@v1
         with:
           environment-url: 'https://org26907746.crm.dynamics.com/'
           app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
