@@ -43,7 +43,7 @@ jobs:
 
       # Install PAC CLI using official Power Platform action
       - name: Install Power Platform Tools (PAC)
-        uses: microsoft/powerplatform-actions/install@v1
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
       # Authenticate using Service Principal (recommended for automation)
       - name: Authenticate to Power Platform
