@@ -33,33 +33,26 @@ jobs:
     runs-on: windows-latest
 
     env:
-      PP_ENV_URL: "https://org26907746.crm.dynamics.com/"
-      PP_CLIENT_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
-      PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
-      PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
-
+      environment-url: 'https://org26907746.crm.dynamics.com/'
+      app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+      client-secret: ${{ secrets.PASSWORD }}
+      tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Install PAC CLI using official Power Platform action
+      # Install PAC CLI using official Power Platform action
       - name: Install Power Platform Tools (PAC)
         uses: microsoft/powerplatform-actions/actions-install@v1
-        # Must be added before other Power Platform operations [1](https://github.com/marketplace/actions/powerplatform-actions)
 
-      # ✅ Authenticate for PAC CLI (service principal)
-      - name: Authenticate (PAC CLI)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          pac auth create `
-            --url "$env:PP_ENV_URL" `
-            --tenant "$env:PP_TENANT_ID" `
-            --clientId "$env:PP_CLIENT_ID" `
-            --clientSecret "$env:PP_CLIENT_SECRET"
-
-          pac auth list
+      # Authenticate using Service Principal (recommended for automation)
+      - name: WhoAmI (connection test)
+        uses: microsoft/powerplatform-actions/whoami@v1
+        with:
+          environment-url: 'https://org26907746.crm.dynamics.com/'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
 
       - name: Create output folders
         shell: pwsh
@@ -73,6 +66,10 @@ jobs:
       - name: Get all solution details (JSON + CSV)
         shell: pwsh
         run: |
+          # pac solution list prints a table; we convert to structured format via parsing.
+          # Newer PAC versions can output json with --json (if supported in your version).
+          # We'll try JSON first, then fallback to table parse.
+
           $ErrorActionPreference = "Stop"
 
           Write-Host "Trying to fetch solutions as JSON (if supported)..."
@@ -84,28 +81,31 @@ jobs:
           } catch {
             $jsonSupported = $false
             Write-Host "JSON output not supported, falling back to parsing table..."
-
             $lines = pac solution list | Out-String
             $rows = $lines -split "`r?`n" | Where-Object { $_.Trim() -ne "" }
 
-            # Skip header lines; parse rows
+            # Heuristic parsing:
+            # We look for lines containing columns: UniqueName / FriendlyName / Version / Managed etc.
+            # This works for standard pac output format.
             $dataLines = $rows | Where-Object { $_ -match "\S" } | Select-Object -Skip 2
 
             $solutions = @()
             foreach ($l in $dataLines) {
+              # Split on 2+ spaces
               $parts = ($l -split "\s{2,}") | Where-Object { $_ -ne "" }
               if ($parts.Count -ge 4) {
                 $solutions += [pscustomobject]@{
-                  UniqueName  = $parts[0]
-                  DisplayName = $parts[1]
-                  Version     = $parts[2]
-                  IsManaged   = $parts[3]
+                  UniqueName   = $parts[0]
+                  DisplayName  = $parts[1]
+                  Version      = $parts[2]
+                  IsManaged    = $parts[3]
                 }
               }
             }
           }
 
           # Normalize if JSON format differs
+          # Common PAC JSON fields include: uniqueName, friendlyName/displayName, version, isManaged
           if ($jsonSupported) {
             $solutions = $solutions | ForEach-Object {
               [pscustomobject]@{
@@ -139,7 +139,12 @@ jobs:
 
           foreach ($s in $solutions) {
             $unique = $s.UniqueName
+            $managedFlag = $false
+            if ($null -ne $s.IsManaged) {
+              $managedFlag = ($s.IsManaged.ToString().ToLower() -in @("true","yes","managed"))
+            }
 
+            # Decide export types
             if ($exportUnmanaged) {
               $outFile = "out/exports/$($unique)_unmanaged.zip"
               Write-Host "Exporting UNMANAGED: $unique -> $outFile"
@@ -154,6 +159,8 @@ jobs:
           }
 
       # Upload inventory files
+      - name: Install Power Platform tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
       - name: Upload solution inventory artifacts
         uses: actions/upload-artifact@v4
         with:
