@@ -34,3 +34,112 @@ jobs:
 
     env:
       PP_ENV_URL: "https://org26907746.crm.dynamics.com/"
+      PP_CLIENT_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
+      PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
+      PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Power Platform Tools (PAC)
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Verify PAC is available
+        shell: pwsh
+        run: |
+          where.exe pac
+          pac --version
+
+      - name: Install PAC CLI fallback (if missing)
+        shell: pwsh
+        run: |
+          if (-not (Get-Command pac -ErrorAction SilentlyContinue)) {
+            dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+            $toolPath = "$env:USERPROFILE\.dotnet\tools"
+            echo $toolPath | Out-File -FilePath $env:GITHUB_PATH -Append
+            $env:PATH = "$toolPath;$env:PATH"
+          }
+          pac --version
+
+      - name: Authenticate to Power Platform
+        shell: pwsh
+        run: |
+          pac auth create `
+            --url "$env:PP_ENV_URL" `
+            --tenant "$env:PP_TENANT_ID" `
+            --clientId "$env:PP_CLIENT_ID" `
+            --clientSecret "$env:PP_CLIENT_SECRET"
+
+          pac auth list
+
+      - name: Create output folders
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          New-Item -ItemType Directory -Force -Path out/exports | Out-Null
+
+      - name: Export solution inventory
+        shell: pwsh
+        run: |
+          try {
+            $solutions = pac solution list --json | ConvertFrom-Json
+            $solutions = $solutions | ForEach-Object {
+              [pscustomobject]@{
+                UniqueName  = $_.uniqueName
+                DisplayName = $_.friendlyName
+                Version     = $_.version
+                IsManaged   = $_.isManaged
+              }
+            }
+          } catch {
+            $lines = pac solution list | Out-String
+            $rows = $lines -split "`r?`n" | Select-Object -Skip 2
+            $solutions = @()
+            foreach ($l in $rows) {
+              $parts = ($l -split "\s{2,}") | Where-Object { $_ }
+              if ($parts.Count -ge 4) {
+                $solutions += [pscustomobject]@{
+                  UniqueName  = $parts[0]
+                  DisplayName = $parts[1]
+                  Version     = $parts[2]
+                  IsManaged   = $parts[3]
+                }
+              }
+            }
+          }
+
+          $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json
+          $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv
+
+      - name: Export solution ZIPs (optional)
+        if: ${{ inputs.export_zips == 'true' }}
+        shell: pwsh
+        run: |
+          $solutions = Get-Content out/solution_inventory.json | ConvertFrom-Json
+
+          foreach ($s in $solutions) {
+            if ("${{ inputs.export_unmanaged }}" -eq "true") {
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_unmanaged.zip" `
+                --managed false `
+                --overwrite
+            }
+
+            if ("${{ inputs.export_managed }}" -eq "true") {
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_managed.zip" `
+                --managed true `
+                --overwrite
+            }
+          }
+
+      - name: Upload inventory files
+        uses: actions/upload-artifact@v4
+        with:
+           name: solution-exports
+           path: out/exports/*.zip
+  
+
