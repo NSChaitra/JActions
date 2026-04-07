@@ -1,0 +1,63 @@
+create_dataverse_teams:
+    runs-on: windows-latest
+    needs: create_environment
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Create Dataverse Teams
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $envUrl = "${{ needs.create_environment.outputs.environment_url }}"
+
+          # Correct auth mapping
+          pac auth create `
+            --tenant "db05faca-c82a-4b9d-b9c5-0f64b6755421" `
+            --applicationId "4fec5240-fd45-408b-8276-d60c97798c49" `
+            --clientSecret "${{ secrets.PASSWORD }}" `
+            --url $envUrl
+
+          # Get access token
+          $token = pac auth token | ConvertFrom-Json
+          $headers = @{
+            Authorization = "Bearer $($token.accessToken)"
+            "Content-Type" = "application/json"
+            Accept = "application/json"
+          }
+
+          # Get root business unit
+          $bu = Invoke-RestMethod `
+            -Method GET `
+            -Uri "$envUrl/api/data/v9.2/businessunits?`$filter=parentbusinessunitid eq null" `
+            -Headers $headers
+
+          $businessUnitId = $bu.value[0].businessunitid
+          Write-Host "Root Business Unit: $businessUnitId"
+
+          # ------------ TEAMS TO CREATE ------------
+          $teams = @(
+            "Environment Admins",
+            "App Makers",
+            "Solution Owners"
+          )
+
+          foreach ($teamName in $teams) {
+            Write-Host "Creating team: $teamName"
+
+            $payload = @{
+              name = $teamName
+              teamtype = 0   # Owner Team
+              "businessunitid@odata.bind" = "/businessunits($businessUnitId)"
+            } | ConvertTo-Json -Depth 5
+
+            Invoke-RestMethod `
+              -Method POST `
+              -Uri "$envUrl/api/data/v9.2/teams" `
+              -Headers $headers `
+              -Body $payload
+          }
+
+          Write-Host "✅ Dataverse teams created successfully"
+``
