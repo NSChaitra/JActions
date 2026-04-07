@@ -1,0 +1,157 @@
+name: Provision Power Platform Environment (Create + Roles + Settings)
+          
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Environment display name"
+        required: true
+        type: string
+      environment_type:
+        description: "Environment type (Sandbox, Production, Developer, etc.)"
+        required: true
+        default: "Sandbox"
+        type: string
+      region:
+        description: "Region (example: unitedstates, europe, india, etc. as supported by PAC)"
+        required: true
+        type: string
+      currency:
+        description: "Currency code (example: USD, INR)"
+        required: true
+        default: "INR"
+        type: string
+      language:
+        description: "Language LCID (example: 1033 for English)"
+        required: true
+        default: "1033"
+        type: string
+      domain_name:
+        description: "Unique domain name (no spaces). Example: myteam-dev-01"
+        required: true
+        type: string
+      templates:
+        description: "Optional templates (comma separated). Example: D365_Sales,D365_CustomerService"
+        required: false
+        default: ""
+        type: string
+      security_group_id:
+        description: "Optional Entra security group objectId (recommended). Leave blank if not used."
+        required: false
+        default: ""
+        type: string
+
+      # Assign multiple role mappings using JSON array:
+      # [{"user":"user1@contoso.com","role":"System Administrator"},{"user":"user2@contoso.com","role":"Basic User"}]
+      role_assignments_json:
+        description: "JSON array of {user, role}. Example: [{\"user\":\"a@x.com\",\"role\":\"System Administrator\"}]"
+        required: false
+        default: "[]"
+        type: string
+
+      # Environment settings in "name=value" lines (Dataverse org settings)
+      # Example:
+      # maxuploadfilesize=131072000
+      # isduplicatedetectionenabled=true
+      env_settings_multiline:
+        description: "Environment (Dataverse org) settings as lines: name=value"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  create_environment:
+    runs-on: windows-latest
+    outputs:
+      environment_url: ${{ steps.create_env.outputs.environment-url }}
+      environment_id:  ${{ steps.create_env.outputs.environment-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Must be first Power Platform step if you hit CLI install/timeout issues
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Create Environment
+        id: create_env
+        uses: microsoft/powerplatform-actions/create-environment@v1
+        with:
+          tenant-id: ${{ secrets.PP_TENANT_ID }}
+          app-id: ${{ secrets.PP_APP_ID }}
+          client-secret: ${{ secrets.PASSWORD }}
+
+          name: ${{ inputs.environment_name }}
+          type: ${{ inputs.environment_type }}
+          region: ${{ inputs.region }}
+          currency: ${{ inputs.currency }}
+          language: ${{ inputs.language }}
+          domain: ${{ inputs.domain_name }}
+          templates: ${{ inputs.templates }}
+          security-group-id: ${{ inputs.security_group_id }}
+
+      - name: Verify connectivity (WhoAmI)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          tenant-id: ${{ secrets.PP_TENANT_ID }}
+          app-id: ${{ secrets.PP_APP_ID }}
+          client-secret: ${{ secrets.PASSWORD }}
+          environment-url: ${{ steps.create_env.outputs.environment-url }}
+
+      - name: Echo created environment
+        shell: pwsh
+        run: |
+          Write-Host "Environment URL: ${{ steps.create_env.outputs.environment-url }}"
+          Write-Host "Environment ID : ${{ steps.create_env.outputs.environment-id }}"
+
+  assign_roles:
+    runs-on: windows-latest
+    needs: create_environment
+    if: ${{ inputs.role_assignments_json != '[]' && inputs.role_assignments_json != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.role_assignments_json) }}
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Assign user to role
+        uses: microsoft/powerplatform-actions/assign-user@v1
+        with:
+          tenant-id: ${{ secrets.PP_TENANT_ID }}
+          app-id: ${{ secrets.PP_APP_ID }}
+          client-secret: ${{ secrets.PP_CLIENT_SECRET }}
+
+          environment: ${{ needs.create_environment.outputs.environment_url }}
+          user: ${{ matrix.user }}
+          role: ${{ matrix.role }}
+
+  update_env_settings:
+    runs-on: windows-latest
+    needs: [create_environment, assign_roles]
+    if: ${{ inputs.env_settings_multiline != '' }}
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Apply environment settings (pac env update-settings)
+        shell: pwsh
+        run: |
+          $envUrl = "${{ needs.create_environment.outputs.environment_url }}"
+
+          # Authenticate PAC for org-level commands
+          pac auth create `
+            --tenant "${{ secrets.PP_TENANT_ID }}" `
+            --applicationId "${{ secrets.PP_APP_ID }}" `
+            --clientSecret "${{ secrets.PASSWORD }}" `
+            --url $envUrl
+
+          Write-Host "Listing current settings (filtered example):"
+          pac env list-settings --environment $envUrl --filter "number"
+
+          $raw = @"
+          ${{ inputs.env_settings_multiline }}
+          "@
+
+          $lines = $raw -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith("#") }
