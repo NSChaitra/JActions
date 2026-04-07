@@ -26,15 +26,7 @@ on:
         required: true
         default: "1033"
         type: string
-      domain_name:
-        description: "Unique domain name (no spaces). Example: myteam-dev-01"
-        required: true
-        type: string
-      templates:
-        description: "Optional templates (comma separated). Example: D365_Sales,D365_CustomerService"
-        required: false
-        default: ""
-        type: string
+      
       security_group_id:
         description: "Optional Entra security group objectId (recommended). Leave blank if not used."
         required: false
@@ -121,7 +113,7 @@ jobs:
         with:
           tenant-id: ${{ secrets.PP_TENANT_ID }}
           app-id: ${{ secrets.PP_APP_ID }}
-          client-secret: ${{ secrets.PP_CLIENT_SECRET }}
+          client-secret: ${{ secrets.PASSWORD}}
 
           environment: ${{ needs.create_environment.outputs.environment_url }}
           user: ${{ matrix.user }}
