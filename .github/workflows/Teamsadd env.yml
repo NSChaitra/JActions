@@ -1,63 +1,145 @@
-create_dataverse_teams:
+name: Provision Power Platform Environment (Create + Roles + Settings)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Environment display name"
+        required: true
+        type: string
+      environment_type:
+        description: "Environment type (Sandbox, Production, Developer, etc.)"
+        required: true
+        default: "Sandbox"
+        type: string
+      region:
+        description: "Region (example: unitedstates, europe, india)"
+        required: true
+        type: string
+      currency:
+        description: "Currency code (example: INR, USD)"
+        required: true
+        default: "INR"
+        type: string
+      language:
+        description: "Language LCID (example: 1033)"
+        required: true
+        default: "1033"
+        type: string
+      security_group_id:
+        description: "Optional Entra security group objectId"
+        required: false
+        default: ""
+        type: string
+
+      role_assignments_json:
+        description: "JSON array [{\"user\":\"a@x.com\",\"role\":\"System Administrator\"}]"
+        required: false
+        default: "[]"
+        type: string
+
+      env_settings_multiline:
+        description: "Environment settings name=value"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+
+  create_environment:
+    runs-on: windows-latest
+    outputs:
+      environment_url: ${{ steps.create_env.outputs.environment-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Create Environment
+        id: create_env
+        uses: microsoft/powerplatform-actions/create-environment@v1
+        with:
+          tenant-id: db05faca-c82a-4b9d-b9c5-0f64b6755421
+          app-id: 4fec5240-fd45-408b-8276-d60c97798c49
+          client-secret: ${{ secrets.PASSWORD }}
+
+          name: ${{ inputs.environment_name }}
+          type: ${{ inputs.environment_type }}
+          region: ${{ inputs.region }}
+          currency: ${{ inputs.currency }}
+          language: ${{ inputs.language }}
+          security-group-id: ${{ inputs.security_group_id }}
+
+      - name: Verify connectivity
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          tenant-id: db05faca-c82a-4b9d-b9c5-0f64b6755421
+          app-id: 4fec5240-fd45-408b-8276-d60c97798c49
+          client-secret: ${{ secrets.PASSWORD }}
+          environment-url: ${{ steps.create_env.outputs.environment-url }}
+
+  create_dataverse_teams:
     runs-on: windows-latest
     needs: create_environment
     steps:
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      - name: Create Dataverse Teams
+      - name: Create Teams
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-
           $envUrl = "${{ needs.create_environment.outputs.environment_url }}"
 
-          # Correct auth mapping
           pac auth create `
             --tenant "db05faca-c82a-4b9d-b9c5-0f64b6755421" `
             --applicationId "4fec5240-fd45-408b-8276-d60c97798c49" `
             --clientSecret "${{ secrets.PASSWORD }}" `
             --url $envUrl
 
-          # Get access token
           $token = pac auth token | ConvertFrom-Json
           $headers = @{
             Authorization = "Bearer $($token.accessToken)"
             "Content-Type" = "application/json"
-            Accept = "application/json"
           }
 
-          # Get root business unit
           $bu = Invoke-RestMethod `
-            -Method GET `
-            -Uri "$envUrl/api/data/v9.2/businessunits?`$filter=parentbusinessunitid eq null" `
-            -Headers $headers
+            -Headers $headers `
+            -Uri "$envUrl/api/data/v9.2/businessunits?`$filter=parentbusinessunitid eq null"
 
-          $businessUnitId = $bu.value[0].businessunitid
-          Write-Host "Root Business Unit: $businessUnitId"
+          $buId = $bu.value[0].businessunitid
 
-          # ------------ TEAMS TO CREATE ------------
-          $teams = @(
-            "Environment Admins",
-            "App Makers",
-            "Solution Owners"
-          )
+          $teams = @("Environment Admins","App Makers","Solution Owners")
 
-          foreach ($teamName in $teams) {
-            Write-Host "Creating team: $teamName"
-
-            $payload = @{
-              name = $teamName
-              teamtype = 0   # Owner Team
-              "businessunitid@odata.bind" = "/businessunits($businessUnitId)"
-            } | ConvertTo-Json -Depth 5
-
+          foreach ($t in $teams) {
             Invoke-RestMethod `
               -Method POST `
-              -Uri "$envUrl/api/data/v9.2/teams" `
               -Headers $headers `
-              -Body $payload
+              -Uri "$envUrl/api/data/v9.2/teams" `
+              -Body (@{
+                name = $t
+                teamtype = 0
+                "businessunitid@odata.bind" = "/businessunits($buId)"
+              } | ConvertTo-Json)
           }
 
-          Write-Host "✅ Dataverse teams created successfully"
-``
+  assign_roles:
+    runs-on: windows-latest
+    needs: create_environment
+    if: ${{ inputs.role_assignments_json != '[]' && inputs.role_assignments_json != '' }}
+    strategy:
+      matrix:
+        include: ${{ fromJSON(inputs.role_assignments_json) }}
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Assign Role
+        uses: microsoft/powerplatform-actions/assign-user@v1
+        with:
+          tenant-id: db05faca-c82a-4b9d-b9c5-0f64b6755421
+          app-id: 4fec5240-fd45-408b-8276-d60c97798c49
+          client-secret: ${{ secrets.PASSWORD }}
+          environment: ${{ needs.create_environment.outputs.environment_url }}
+          user: ${{ matrix.user }}
+          role: ${{ matrix.role }}
