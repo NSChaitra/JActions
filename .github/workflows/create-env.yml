@@ -69,8 +69,8 @@ jobs:
         id: create_env
         uses: microsoft/powerplatform-actions/create-environment@v1
         with:
-          tenant-id: ${{ secrets.PP_TENANT_ID }}
-          app-id: ${{ secrets.PP_APP_ID }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
 
           name: ${{ inputs.environment_name }}
@@ -78,15 +78,13 @@ jobs:
           region: ${{ inputs.region }}
           currency: ${{ inputs.currency }}
           language: ${{ inputs.language }}
-          domain: ${{ inputs.domain_name }}
-          templates: ${{ inputs.templates }}
           security-group-id: ${{ inputs.security_group_id }}
 
       - name: Verify connectivity (WhoAmI)
         uses: microsoft/powerplatform-actions/who-am-i@v1
         with:
-          tenant-id: ${{ secrets.PP_TENANT_ID }}
-          app-id: ${{ secrets.PP_APP_ID }}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
           client-secret: ${{ secrets.PASSWORD }}
           environment-url: ${{ steps.create_env.outputs.environment-url }}
 
@@ -111,9 +109,9 @@ jobs:
       - name: Assign user to role
         uses: microsoft/powerplatform-actions/assign-user@v1
         with:
-          tenant-id: ${{ secrets.PP_TENANT_ID }}
-          app-id: ${{ secrets.PP_APP_ID }}
-          client-secret: ${{ secrets.PASSWORD}}
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
 
           environment: ${{ needs.create_environment.outputs.environment_url }}
           user: ${{ matrix.user }}
@@ -134,8 +132,8 @@ jobs:
 
           # Authenticate PAC for org-level commands
           pac auth create `
-            --tenant "${{ secrets.PP_TENANT_ID }}" `
-            --applicationId "${{ secrets.PP_APP_ID }}" `
+            --tenant "4fec5240-fd45-408b-8276-d60c97798c49" `
+            --applicationId "db05faca-c82a-4b9d-b9c5-0f64b6755421" `
             --clientSecret "${{ secrets.PASSWORD }}" `
             --url $envUrl
 
