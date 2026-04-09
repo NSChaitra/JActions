@@ -1,60 +1,234 @@
-
-name: Create Dev Test and Prod Environments
+name: Provision Power Platform Environment (Create + Roles + Settings)
 
 on:
   workflow_dispatch:
     inputs:
-      env_name:
-        description: "Base name for environments"
+      environment_name:
+        description: "Environment display name"
         required: true
         type: string
-
-      user_id:
-        description: "AAD Object ID (or UPN) for admin user"
+      environment_type:
+        description: "Environment type (Sandbox, Production, Developer, etc.)"
         required: true
+        default: "Sandbox"
+        type: string
+      region:
+        description: "Region (example: unitedstates, europe, india, etc. as supported by PAC)"
+        required: true
+        type: string
+      currency:
+        description: "Currency code (example: USD, INR)"
+        required: true
+        default: "INR"
+        type: string
+      language:
+        description: "Language LCID (example: 1033 for English)"
+        required: true
+        default: "1033"
+        type: string
+
+      security_group_id:
+        description: "Optional Entra security group objectId (recommended). Leave blank if not used."
+        required: false
+        default: ""
+        type: string
+
+      # Assign multiple role mappings using JSON array:
+      # [{"user":"user1@contoso.com","role":"System Administrator"},{"user":"user2@contoso.com","role":"Basic User"}]
+      role_assignments_json:
+        description: "JSON array of {user, role}. Example: [{\"user\":\"a@x.com\",\"role\":\"System Administrator\"}]"
+        required: false
+        default: "[]"
+        type: string
+
+      # Environment settings in "name=value" lines (Dataverse org settings)
+      # Optional valueName for readability/logging:
+      # fullnameconventioncode=3|First Name
+      # isauditenabled=true
+      env_settings_multiline:
+        description: |
+          Environment (Dataverse org) settings as lines: name=value
+          Optional: append |valueName for logging, example: fullnameconventioncode=3|First Name
+        required: false
+        default: ""
         type: string
 
 jobs:
-  Create-Environments:
-    runs-on: ubuntu-latest
-    env:
-      RUNNER_DEBUG: 1
-
+  create_environment:
+    runs-on: windows-latest
+    outputs:
+      environment_url: ${{ steps.create_env.outputs.environment-url }}
+      environment_id:  ${{ steps.create_env.outputs.environment-id }}
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # ---------------- DEV ----------------
-    - name: Create Developer Environment
-      uses: microsoft/powerplatform-actions/create-environment@v1
-      with:
-        app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
-        client-secret: ${{ secrets.PASSWORD }}
-        tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
-        name: ${{ inputs.env_name }}_Dev
-        type: Developer
-        domain: ${{ inputs.env_name }}dev
+      # Must be first Power Platform step if you hit CLI install/timeout issues
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
-    - name: Assign user to Dev
-      uses: microsoft/powerplatform-actions/assign-user@v1
-      with:
-        app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
-        client-secret: ${{ secrets.PASSWORD }}
-        tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
-        environment: https://${{ inputs.env_name }}dev.crm.dynamics.com
-        user: ${{ inputs.user_id }}
-        role: System Administrator
+      - name: Create Environment
+        id: create_env
+        uses: microsoft/powerplatform-actions/create-environment@v1
+        with:
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
 
-    - name: Update Dev environment settings
-      shell: bash
-      run: |
-        pac auth create \
-          --tenant "db05faca-c82a-4b9d-b9c5-0f64b6755421" \
-          --applicationId "4fec5240-fd45-408b-8276-d60c97798c49" \
-          --clientSecret "${{ secrets.PASSWORD }}" \
-          --url "https://${{ inputs.env_name }}dev.crm.dynamics.com"
+          name: ${{ inputs.environment_name }}
+          type: ${{ inputs.environment_type }}
+          region: ${{ inputs.region }}
+          currency: ${{ inputs.currency }}
+          language: ${{ inputs.language }}
+          security-group-id: ${{ inputs.security_group_id }}
 
-        pac env update-settings \
-          --environment "https://${{ inputs.env_name }}dev.crm.dynamics.com" \
-          --name blockedattachments \
-          --value "exe;bat;cmd;com;vbs;js"
+      - name: Verify connectivity (WhoAmI)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+          environment-url: ${{ steps.create_env.outputs.environment-url }}
 
+      - name: Echo created environment
+        shell: pwsh
+        run: |
+          Write-Host "Environment URL: ${{ steps.create_env.outputs.environment-url }}"
+          Write-Host "Environment ID : ${{ steps.create_env.outputs.environment-id }}"
+
+  assign_roles:
+    runs-on: windows-latest
+    needs: create_environment
+    if: ${{ inputs.role_assignments_json != '[]' && inputs.role_assignments_json != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.role_assignments_json) }}
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Assign user to role
+        uses: microsoft/powerplatform-actions/assign-user@v1
+        with:
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+          environment: ${{ needs.create_environment.outputs.environment_url }}
+          user: ${{ matrix.user }}
+          role: ${{ matrix.role }}
+
+  update_env_settings:
+    runs-on: windows-latest
+    needs: [create_environment, assign_roles]
+    if: ${{ always() && inputs.env_settings_multiline != '' }}
+    steps:
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
+
+      - name: Wait for Dataverse readiness (retry pac env who)
+        shell: pwsh
+        run: |
+          $envUrl = "${{ needs.create_environment.outputs.environment_url }}"
+          $tenantId = "db05faca-c82a-4b9d-b9c5-0f64b6755421"
+          $appId    = "4fec5240-fd45-408b-8276-d60c97798c49"
+          $secret   = "${{ secrets.PASSWORD }}"
+
+          pac auth create `
+            --tenant $tenantId `
+            --applicationId $appId `
+            --clientSecret $secret `
+            --url $envUrl
+
+          $max = 24
+          $delay = 20
+          for ($i=1; $i -le $max; $i++) {
+            try {
+              pac env who --environment $envUrl | Out-Host
+              Write-Host "Environment is ready."
+              break
+            } catch {
+              if ($i -eq $max) { throw }
+              Write-Host "Not ready yet (attempt $i/$max). Waiting $delay seconds..."
+              Start-Sleep -Seconds $delay
+            }
+          }
+
+      - name: Apply environment settings (pac env update-settings)
+        shell: pwsh
+        run: |
+          $envUrl = "${{ needs.create_environment.outputs.environment_url }}"
+          $tenantId = "db05faca-c82a-4b9d-b9c5-0f64b6755421"
+          $appId    = "4fec5240-fd45-408b-8276-d60c97798c49"
+          $secret   = "${{ secrets.PASSWORD }}"
+
+          # Auth (safe even if already created above)
+          pac auth create `
+            --tenant $tenantId `
+            --applicationId $appId `
+            --clientSecret $secret `
+            --url $envUrl
+
+          # Read raw multiline input
+          $raw = @"
+          ${{ inputs.env_settings_multiline }}
+          "@
+
+          # Parse lines: name=value OR name=value|valueName (valueName is optional and only logged)
+          $lines = $raw -split "`n" |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and -not $_.StartsWith("#") }
+
+          if ($lines.Count -eq 0) {
+            Write-Host "No settings found to apply."
+            exit 0
+          }
+
+          $updatedNames = @()
+          foreach ($line in $lines) {
+            # Support inline comments after #
+            $clean = ($line -split "#", 2)[0].Trim()
+            if (-not $clean) { continue }
+
+            # Split on first '='
+            $idx = $clean.IndexOf("=")
+            if ($idx -lt 1) {
+              Write-Warning "Skipping invalid line (expected name=value): $line"
+              continue
+            }
+
+            $name  = $clean.Substring(0, $idx).Trim()
+            $right = $clean.Substring($idx + 1).Trim()
+
+            # Optional: value|valueName
+            $value = $right
+            $valueName = ""
+            if ($right -match "\|") {
+              $parts = $right -split "\|", 2
+              $value = $parts[0].Trim()
+              $valueName = $parts[1].Trim()
+            }
+
+            if (-not $name -or -not $value) {
+              Write-Warning "Skipping invalid line (empty name/value): $line"
+              continue
+            }
+
+            Write-Host "Updating setting: $name = $value" -ForegroundColor Cyan
+            if ($valueName) {
+              Write-Host "  (valueName: $valueName)" -ForegroundColor DarkGray
+            }
+
+            # Apply the setting
+            pac env update-settings --environment $envUrl --name $name --value $value
+
+            $updatedNames += $name
+          }
+
+          # Show results for updated settings using regex filter
+          if ($updatedNames.Count -gt 0) {
+            $regex = ($updatedNames | ForEach-Object { [Regex]::Escape($_) }) -join "|"
+            Write-Host ""
+            Write-Host "Verifying updated settings (filtered): $regex" -ForegroundColor Green
+            pac env list-settings --environment $envUrl --filter $regex
+          }
