@@ -1,3 +1,4 @@
+
 name: Export All new Solution Details (Inventory + Optional ZIPs)
 
 on:
@@ -8,21 +9,27 @@ on:
         required: true
         default: "false"
         type: choice
-        options: ["false", "true"]
+        options:
+          - "false"
+          - "true"
 
       export_managed:
         description: "If exporting ZIPs: export managed solutions too?"
         required: true
         default: "false"
         type: choice
-        options: ["false", "true"]
+        options:
+          - "false"
+          - "true"
 
       export_unmanaged:
         description: "If exporting ZIPs: export unmanaged solutions too?"
         required: true
         default: "true"
         type: choice
-        options: ["true", "false"]
+        options:
+          - "true"
+          - "false"
 
 jobs:
   export_solution_details:
@@ -34,6 +41,7 @@ jobs:
       PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
 
+      # Optional: reduce noise/telemetry (safe in pipelines)
       PP_TOOLS_TELEMETRY_OPTOUT: "1"
       PP_TOOLS_NO_LOGO: "true"
 
@@ -59,7 +67,7 @@ jobs:
           echo $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       # -------------------------------------------------
-      # ✅ Verify pac (FIXED: do NOT use pac --version)
+      # ✅ Verify pac (NO pac --version)
       # -------------------------------------------------
       - name: Verify pac (safe)
         shell: pwsh
@@ -73,7 +81,7 @@ jobs:
           Write-Host "Dotnet global tools:"
           dotnet tool list -g
 
-          Write-Host "PAC help output (also confirms it runs):"
+          Write-Host "PAC help (confirms pac runs):"
           pac help
 
       # -------------------------------------------------
@@ -100,7 +108,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path out/exports | Out-Null
 
       # -------------------------------------------------
-      # 1️⃣ Inventory: JSON + CSV (robust JSON handling)
+      # 1️⃣ Inventory: JSON + CSV (ROBUST + FIXED PowerShell)
       # -------------------------------------------------
       - name: Export solution inventory (JSON + CSV)
         shell: pwsh
@@ -110,20 +118,25 @@ jobs:
 
           Write-Host "Exporting solution inventory..."
 
-          # Redirect to file to avoid banner/noise breaking JSON parsing
+          # Redirect to file to avoid PAC banner/noise breaking JSON parsing
           pac solution list --output json > out/solutions_raw.json
 
+          # Read full JSON payload
           $raw = Get-Content out/solutions_raw.json -Raw
 
-          if (-not ($raw.TrimStart().StartsWith("{") -or $raw.TrimStart().StartsWith("["))) {
-            Write-Host "PAC did not return pure JSON. First 500 chars:"
-            Write-Host ($raw.Substring(0, :Min(500, $raw.Length)))
-            throw "PAC output is not valid JSON. Check out/solutions_raw.json artifact."
+          # Validate content starts with JSON token
+          $trim = $raw.TrimStart()
+          if (-not ($trim.StartsWith("{") -or $trim.StartsWith("["))) {
+            Write-Host "PAC did not return valid JSON. First 500 characters:"
+            $len = [Math]::Min(500, $raw.Length)
+            Write-Host ($raw.Substring(0, $len))
+            throw "PAC output is not valid JSON. Inspect out/solutions_raw.json artifact."
           }
 
+          # Parse JSON
           $data = $raw | ConvertFrom-Json
 
-          # Normalize: sometimes array, sometimes wrapped
+          # Normalize to array: some builds might return array or wrap in .value
           if ($data -is [System.Collections.IEnumerable] -and $data -isnot [pscustomobject]) {
             $list = $data
           } elseif ($null -ne $data.value) {
@@ -142,7 +155,7 @@ jobs:
           }
 
           $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json -Encoding utf8
-          $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv -Encoding utf8
+          $solutions | Export-Csv -NoTypeInformation -Path out/solution_inventory.csv -Encoding utf8
 
           Write-Host "✅ Total solutions:" $solutions.Count
 
