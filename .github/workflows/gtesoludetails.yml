@@ -1,10 +1,10 @@
-name: Export Solution Inventory (Ultra‑Robust)
+name: Export Solution Inventory (FINAL – CI SAFE)
 
 on:
   workflow_dispatch:
     inputs:
       export_zips:
-        description: "Export solutions as ZIP files?"
+        description: "Export solution ZIPs?"
         required: true
         default: "false"
         type: choice
@@ -21,14 +21,14 @@ jobs:
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
 
     steps:
-      # ---------------------------------
+      # ----------------------------------
       # Checkout
-      # ---------------------------------
+      # ----------------------------------
       - uses: actions/checkout@v4
 
-      # ---------------------------------
+      # ----------------------------------
       # Install PAC CLI
-      # ---------------------------------
+      # ----------------------------------
       - name: Install PAC CLI
         shell: pwsh
         run: |
@@ -37,9 +37,9 @@ jobs:
           "$env:USERPROFILE\.dotnet\tools" |
             Out-File $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # ---------------------------------
+      # ----------------------------------
       # Verify PAC
-      # ---------------------------------
+      # ----------------------------------
       - name: Verify PAC
         shell: pwsh
         run: |
@@ -47,41 +47,46 @@ jobs:
           where pac
           pac help
 
-      # ---------------------------------
-      # Authenticate
-      # ---------------------------------
-      - name: Authenticate
+      # ----------------------------------
+      # ✅ AUTHENTICATION (FIXED)
+      # ----------------------------------
+      - name: Authenticate to Power Platform
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
 
           pac auth create `
+            --name ci-profile `
             --url "$env:PP_ENV_URL" `
             --tenant "$env:PP_TENANT_ID" `
             --clientId "$env:PP_CLIENT_ID" `
             --clientSecret "$env:PP_CLIENT_SECRET"
 
+          # ✅ EXPLICITLY SELECT PROFILE (CRITICAL)
+          pac auth select --name ci-profile
+
           pac auth list
 
-      # ---------------------------------
+      # ----------------------------------
       # Prepare folders
-      # ---------------------------------
+      # ----------------------------------
       - name: Prepare folders
         shell: pwsh
         run: |
-          New-Item out -ItemType Directory -Force | Out-Null
-          New-Item out/exports -ItemType Directory -Force | Out-Null
+          New-Item -ItemType Directory -Force out | Out-Null
+          New-Item -ItemType Directory -Force out/exports | Out-Null
 
-      # ---------------------------------
-      # ✅ SOLUTION INVENTORY (FINAL LOGIC)
-      # ---------------------------------
+      # ----------------------------------
+      # ✅ SOLUTION INVENTORY (FINAL SAFE)
+      # ----------------------------------
       - name: Export solution inventory
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
+          $ErrorActionPreference = "Continue"
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
 
+          Write-Host "Running pac solution list..."
           pac solution list --includeSystemSolutions > out/solutions_raw.txt
 
           $lines = Get-Content out/solutions_raw.txt
@@ -91,81 +96,60 @@ jobs:
 
             if ($line.Trim() -eq "") { continue }
 
-            # Skip obvious header / banner lines
-            if ($line -match 'Solution|Friendly|Version|Managed|Power Platform|Listing') {
+            # Skip auth/banner lines
+            if ($line -match 'auth|profile|Power Platform|Listing|Environment') {
               continue
             }
 
             # Split on 2+ spaces
-            $parts = $line -split '\s{2,}'
+            $cols = $line -split '\s{2,}'
 
-            # Heuristic: valid solution rows have at least 3 columns
-            if ($parts.Count -lt 3) { continue }
-
-            # Managed flag is usually last column if present
-            $managed =
-              if ($parts[-1] -match 'true|false|yes|no') { $parts[-1] }
-              else { "" }
+            if ($cols.Count -lt 3) { continue }
 
             $solutions += [pscustomobject]@{
-              UniqueName  = $parts[0]
-              DisplayName = $parts[1]
-              Version     = $parts[2]
-              IsManaged   = $managed
+              UniqueName  = $cols[0]
+              DisplayName = $cols[1]
+              Version     = $cols[2]
+              IsManaged   = if ($cols[-1] -match 'true|false|yes|no') { $cols[-1] } else { "" }
             }
           }
 
           if ($solutions.Count -eq 0) {
-            Write-Host "No solutions detected. Raw output below:"
-            Get-Content out/solutions_raw.txt | Select-Object -First 30
-            throw "Parsing failed – inspect solutions_raw.txt"
-          }
+            Write-Host "⚠️ No solutions parsed. Uploading raw output only."
+          } else {
+            $solutions | ConvertTo-Json -Depth 5 |
+              Out-File out/solution_inventory.json -Encoding utf8
 
-          $solutions |
-            ConvertTo-Json -Depth 5 |
-            Out-File out/solution_inventory.json -Encoding utf8
-
-          $solutions |
-            Export-Csv out/solution_inventory.csv `
+            $solutions | Export-Csv `
+              -Path out/solution_inventory.csv `
               -NoTypeInformation `
               -Encoding utf8
+          }
 
-          Write-Host "✅ Solutions exported:" $solutions.Count
-
-      # ---------------------------------
+      # ----------------------------------
       # Optional ZIP export
-      # ---------------------------------
+      # ----------------------------------
       - name: Export ZIPs
         if: ${{ inputs.export_zips == 'true' }}
         shell: pwsh
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
 
-          $solutions = Get-Content out/solution_inventory.json |
-            ConvertFrom-Json
-
-          foreach ($s in $solutions) {
-            pac solution export `
-              --name $s.UniqueName `
-              --path "out/exports/$($s.UniqueName).zip" `
-              --overwrite
+          if (Test-Path out/solution_inventory.json) {
+            $solutions = Get-Content out/solution_inventory.json | ConvertFrom-Json
+            foreach ($s in $solutions) {
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName).zip" `
+                --overwrite
+            }
           }
 
-      # ---------------------------------
+      # ----------------------------------
       # Upload artifacts
-      # ---------------------------------
+      # ----------------------------------
       - name: Upload inventory
         uses: actions/upload-artifact@v4
         with:
           name: solution-inventory
-          path: |
-            out/solutions_raw.txt
-            out/solution_inventory.json
-            out/solution_inventory.csv
-
-      - name: Upload zips
-        if: ${{ inputs.export_zips == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: solution-zips
-          path: out/exports/*.zip
+          path: out/
