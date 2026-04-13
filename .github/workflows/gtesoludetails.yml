@@ -35,3 +35,164 @@ jobs:
     env:
       PP_ENV_URL: "https://org26907746.crm.dynamics.com/"
       PP_CLIENT_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
+      PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
+      PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
+
+      # Optional hardening: suppress extra telemetry/noise where supported
+      PP_TOOLS_TELEMETRY_OPTOUT: "1"
+      # If supported by your PAC version, this may reduce banner output.
+      PP_TOOLS_NO_LOGO: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      # ✅ Install PAC CLI via .NET tool (no Store dependency)
+      # -------------------------------------------------
+      - name: Install Power Platform CLI (PAC) - .NET Tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          dotnet --info
+
+          # Install PAC CLI as dotnet global tool
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+          # Ensure dotnet tools path is available to subsequent steps
+          $toolPath = "$env:USERPROFILE\.dotnet\tools"
+          echo $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify pac
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          where.exe pac
+          pac --version
+
+      # -------------------------------------------------
+      # ✅ Authenticate using Service Principal
+      # -------------------------------------------------
+      - name: Authenticate to Power Platform
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
+          pac auth create `
+            --url "$env:PP_ENV_URL" `
+            --tenant "$env:PP_TENANT_ID" `
+            --clientId "$env:PP_CLIENT_ID" `
+            --clientSecret "$env:PP_CLIENT_SECRET"
+
+          pac auth list
+
+      - name: Create output folders
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          New-Item -ItemType Directory -Force -Path out/exports | Out-Null
+
+      # -------------------------------------------------
+      # 1️⃣ Inventory: JSON + CSV (FIXED to avoid ConvertFrom-Json errors)
+      # -------------------------------------------------
+      - name: Export solution inventory (JSON + CSV)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
+          Write-Host "Exporting solution inventory..."
+
+          # Redirect to file to avoid PAC banner/noise breaking JSON parsing
+          pac solution list --output json > out/solutions_raw.json
+
+          # Read the entire JSON file as a single string
+          $raw = Get-Content out/solutions_raw.json -Raw
+
+          # If anything non-JSON still sneaks in, this will help you troubleshoot quickly
+          if (-not ($raw.TrimStart().StartsWith("{") -or $raw.TrimStart().StartsWith("["))) {
+            Write-Host "PAC did not return pure JSON. First 500 chars:"
+            Write-Host ($raw.Substring(0, [Math]::Min(500, $raw.Length)))
+            throw "PAC output is not valid JSON. Check out/solutions_raw.json artifact."
+          }
+
+          $data = $raw | ConvertFrom-Json
+
+          # Some PAC versions return an array, some may return an object with a property.
+          # Normalize to an array.
+          if ($data -is [System.Collections.IEnumerable] -and $data -isnot [pscustomobject]) {
+            $list = $data
+          } elseif ($null -ne $data.value) {
+            $list = $data.value
+          } else {
+            $list = $data
+          }
+
+          $solutions = $list | ForEach-Object {
+            [pscustomobject]@{
+              UniqueName  = $_.uniqueName
+              DisplayName = $_.friendlyName
+              Version     = $_.version
+              IsManaged   = $_.isManaged
+            }
+          }
+
+          $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json -Encoding utf8
+          $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv -Encoding utf8
+
+          Write-Host "✅ Total solutions:" $solutions.Count
+
+      # -------------------------------------------------
+      # 2️⃣ Optional: Export ZIPs
+      # -------------------------------------------------
+      - name: Export solution ZIPs
+        if: ${{ inputs.export_zips == 'true' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
+          $solutions = Get-Content out/solution_inventory.json -Raw | ConvertFrom-Json
+
+          foreach ($s in $solutions) {
+
+            if ("${{ inputs.export_unmanaged }}" -eq "true") {
+              Write-Host "Exporting unmanaged: $($s.UniqueName)"
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_unmanaged.zip" `
+                --managed false `
+                --overwrite
+            }
+
+            if ("${{ inputs.export_managed }}" -eq "true") {
+              Write-Host "Exporting managed: $($s.UniqueName)"
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_managed.zip" `
+                --managed true `
+                --overwrite
+            }
+          }
+
+      # -------------------------------------------------
+      # Upload artifacts
+      # -------------------------------------------------
+      - name: Upload solution inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: solution-inventory
+          path: |
+            out/solutions_raw.json
+            out/solution_inventory.json
+            out/solution_inventory.csv
+
+      - name: Upload solution ZIPs
+        if: ${{ inputs.export_zips == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: solution-exports
+          path: out/exports/*.zip
