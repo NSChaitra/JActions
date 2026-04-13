@@ -1,4 +1,4 @@
-name: Export Solution Inventory (FINAL – AUTH FIXED FOR PAC 2.6.3)
+name: Export Solution Inventory (FINAL – VERIFIED)
 
 on:
   workflow_dispatch:
@@ -14,14 +14,11 @@ jobs:
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
 
     steps:
-      # ----------------------------------
-      # Checkout
-      # ----------------------------------
       - uses: actions/checkout@v4
 
-      # ----------------------------------
+      # ----------------------------
       # Install PAC CLI
-      # ----------------------------------
+      # ----------------------------
       - name: Install PAC CLI
         shell: pwsh
         run: |
@@ -29,17 +26,9 @@ jobs:
           "$env:USERPROFILE\.dotnet\tools" |
             Out-File $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # ----------------------------------
-      # Verify PAC
-      # ----------------------------------
-      - name: Verify PAC
-        shell: pwsh
-        run: |
-          pac help
-
-      # ----------------------------------
-      # ✅ AUTHENTICATION (CORRECT FOR v2.6.3)
-      # ----------------------------------
+      # ----------------------------
+      # Authenticate (PAC 2.6.3 compatible)
+      # ----------------------------
       - name: Authenticate to Power Platform
         shell: pwsh
         run: |
@@ -51,11 +40,58 @@ jobs:
 
           pac auth list
 
-      # ----------------------------------
-      # ✅ SOLUTION LIST (NOW WORKS)
-      # ----------------------------------
-      - name: Export solution list
+      # ----------------------------
+      # Export raw solution list
+      # ----------------------------
+      - name: Export solution list (raw)
         shell: pwsh
         run: |
           pac solution list `
             --environment "$env:PP_ENV_URL" `
+            --includeSystemSolutions `
+            > solutions_raw.txt
+
+      # ----------------------------
+      # ✅ PARSE OUTPUT (MATCHES YOUR FORMAT)
+      # ----------------------------
+      - name: Parse solution inventory
+        shell: pwsh
+        run: |
+          $lines = Get-Content solutions_raw.txt
+
+          # Skip first 2 lines (banner + header)
+          $dataLines = $lines | Select-Object -Skip 2
+
+          $solutions = foreach ($line in $dataLines) {
+            if ($line.Trim() -eq "") { continue }
+
+            [pscustomobject]@{
+              UniqueName  = $line.Substring(0, 25).Trim()
+              DisplayName = $line.Substring(25, 40).Trim()
+              Version     = $line.Substring(65, 15).Trim()
+              IsManaged   = $line.Substring(80).Trim()
+            }
+          }
+
+          $solutions | ConvertTo-Json -Depth 5 |
+            Out-File solution_inventory.json -Encoding utf8
+
+          $solutions | Export-Csv `
+            -Path solution_inventory.csv `
+            -NoTypeInformation `
+            -Encoding utf8
+
+          Write-Host "✅ Parsed solutions:" $solutions.Count
+
+      # ----------------------------
+      # Upload artifacts (ALWAYS visible)
+      # ----------------------------
+      - name: Upload inventory artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solution-inventory
+          path: |
+            solutions_raw.txt
+            solution_inventory.json
+            solution_inventory.csv
