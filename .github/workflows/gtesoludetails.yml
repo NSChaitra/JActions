@@ -8,7 +8,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      PP_ENV_URL: "https://org26907746.crm.dynamics.com/"
+      PP_ENV_URL: "https://prodev-prod.crm.dynamics.com/"
       PP_APPLICATION_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
       PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
