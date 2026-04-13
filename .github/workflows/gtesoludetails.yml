@@ -1,10 +1,10 @@
-name: Export Solution Inventory (Text Safe)
+name: Export Solution Inventory (Ultra‑Robust)
 
 on:
   workflow_dispatch:
     inputs:
       export_zips:
-        description: "Export all solutions as ZIP files?"
+        description: "Export solutions as ZIP files?"
         required: true
         default: "false"
         type: choice
@@ -21,27 +21,25 @@ jobs:
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
 
     steps:
-      # -------------------------------
+      # ---------------------------------
       # Checkout
-      # -------------------------------
+      # ---------------------------------
       - uses: actions/checkout@v4
 
-      # -------------------------------
-      # Install PAC CLI (dotnet tool)
-      # -------------------------------
+      # ---------------------------------
+      # Install PAC CLI
+      # ---------------------------------
       - name: Install PAC CLI
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-
           dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-
           "$env:USERPROFILE\.dotnet\tools" |
             Out-File $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # -------------------------------
-      # Verify PAC (NO --version)
-      # -------------------------------
+      # ---------------------------------
+      # Verify PAC
+      # ---------------------------------
       - name: Verify PAC
         shell: pwsh
         run: |
@@ -49,9 +47,9 @@ jobs:
           where pac
           pac help
 
-      # -------------------------------
+      # ---------------------------------
       # Authenticate
-      # -------------------------------
+      # ---------------------------------
       - name: Authenticate
         shell: pwsh
         run: |
@@ -66,63 +64,61 @@ jobs:
 
           pac auth list
 
-      # -------------------------------
+      # ---------------------------------
       # Prepare folders
-      # -------------------------------
-      - name: Create folders
+      # ---------------------------------
+      - name: Prepare folders
         shell: pwsh
         run: |
           New-Item out -ItemType Directory -Force | Out-Null
           New-Item out/exports -ItemType Directory -Force | Out-Null
 
-      # --------------------------------------------------
-      # ✅ SOLUTION INVENTORY (FINAL SAFE LOGIC)
-      # --------------------------------------------------
-      - name: Export solution inventory (text‑safe)
+      # ---------------------------------
+      # ✅ SOLUTION INVENTORY (FINAL LOGIC)
+      # ---------------------------------
+      - name: Export solution inventory
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
 
-          Write-Host "Running: pac solution list"
           pac solution list --includeSystemSolutions > out/solutions_raw.txt
 
           $lines = Get-Content out/solutions_raw.txt
-
-          # Find LAST separator line (-----)
-          $separator = $lines |
-            Select-String '^-{3,}' |
-            Select-Object -Last 1
-
-          if (-not $separator) {
-            throw "Separator line not found. Check solutions_raw.txt"
-          }
-
-          # Data starts after separator
-          $startIndex = $separator.LineNumber
-          $dataLines = $lines | Select-Object -Skip $startIndex
-
           $solutions = @()
 
-          foreach ($line in $dataLines) {
+          foreach ($line in $lines) {
 
             if ($line.Trim() -eq "") { continue }
 
-            # Split table columns on 2+ spaces
-            $cols = $line -split '\s{2,}'
+            # Skip obvious header / banner lines
+            if ($line -match 'Solution|Friendly|Version|Managed|Power Platform|Listing') {
+              continue
+            }
 
-            if ($cols.Count -lt 4) { continue }
+            # Split on 2+ spaces
+            $parts = $line -split '\s{2,}'
+
+            # Heuristic: valid solution rows have at least 3 columns
+            if ($parts.Count -lt 3) { continue }
+
+            # Managed flag is usually last column if present
+            $managed =
+              if ($parts[-1] -match 'true|false|yes|no') { $parts[-1] }
+              else { "" }
 
             $solutions += [pscustomobject]@{
-              UniqueName  = $cols[0]
-              DisplayName = $cols[1]
-              Version     = $cols[2]
-              IsManaged   = $cols[-1]
+              UniqueName  = $parts[0]
+              DisplayName = $parts[1]
+              Version     = $parts[2]
+              IsManaged   = $managed
             }
           }
 
           if ($solutions.Count -eq 0) {
-            throw "No solutions parsed. Inspect out/solutions_raw.txt"
+            Write-Host "No solutions detected. Raw output below:"
+            Get-Content out/solutions_raw.txt | Select-Object -First 30
+            throw "Parsing failed – inspect solutions_raw.txt"
           }
 
           $solutions |
@@ -131,14 +127,14 @@ jobs:
 
           $solutions |
             Export-Csv out/solution_inventory.csv `
-            -NoTypeInformation `
-            -Encoding utf8
+              -NoTypeInformation `
+              -Encoding utf8
 
           Write-Host "✅ Solutions exported:" $solutions.Count
 
-      # --------------------------------------------------
-      # Optional ZIP Export
-      # --------------------------------------------------
+      # ---------------------------------
+      # Optional ZIP export
+      # ---------------------------------
       - name: Export ZIPs
         if: ${{ inputs.export_zips == 'true' }}
         shell: pwsh
@@ -149,17 +145,15 @@ jobs:
             ConvertFrom-Json
 
           foreach ($s in $solutions) {
-            Write-Host "Exporting: $($s.UniqueName)"
-
             pac solution export `
               --name $s.UniqueName `
               --path "out/exports/$($s.UniqueName).zip" `
               --overwrite
           }
 
-      # --------------------------------------------------
+      # ---------------------------------
       # Upload artifacts
-      # --------------------------------------------------
+      # ---------------------------------
       - name: Upload inventory
         uses: actions/upload-artifact@v4
         with:
@@ -169,7 +163,7 @@ jobs:
             out/solution_inventory.json
             out/solution_inventory.csv
 
-      - name: Upload ZIPs
+      - name: Upload zips
         if: ${{ inputs.export_zips == 'true' }}
         uses: actions/upload-artifact@v4
         with:
