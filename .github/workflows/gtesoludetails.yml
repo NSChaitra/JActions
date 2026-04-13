@@ -43,32 +43,24 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------
-      # ✅ Install PAC CLI via .NET tool (no Store dependency)
+      # ✅ Install PAC CLI
       # -------------------------------------------------
-      - name: Install Power Platform CLI (PAC) - .NET Tool
+      - name: Install Power Platform CLI (PAC)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-
-          dotnet --info
-
-          # Install PAC CLI as dotnet global tool (recommended & simplest)
           dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-
-          # Ensure dotnet tools path is available to subsequent steps
-          $toolPath = "$env:USERPROFILE\.dotnet\tools"
-          echo $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify pac
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-          where.exe pac
           pac --version
+          pac help
 
       # -------------------------------------------------
-      # ✅ Authenticate using Service Principal
+      # ✅ Authenticate
       # -------------------------------------------------
       - name: Authenticate to Power Platform
         shell: pwsh
@@ -91,50 +83,34 @@ jobs:
           New-Item -ItemType Directory -Force -Path out/exports | Out-Null
 
       # -------------------------------------------------
-      # 1️⃣ Inventory: JSON + CSV
+      # ✅ Inventory Export (JSON + CSV) – FIXED
       # -------------------------------------------------
-      - name: Export solution inventory (JSON + CSV)
+      - name: Export solution inventory
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
 
-          try {
-            Write-Host "Trying JSON output..."
-            $solutions = pac solution list --json | ConvertFrom-Json
-            $solutions = $solutions | ForEach-Object {
-              [pscustomobject]@{
-                UniqueName  = $_.uniqueName
-                DisplayName = $_.friendlyName
-                Version     = $_.version
-                IsManaged   = $_.isManaged
-              }
-            }
-          } catch {
-            Write-Host "JSON not supported – parsing table output..."
-            $lines = pac solution list | Out-String
-            $rows = $lines -split "`r?`n" | Select-Object -Skip 2
+          Write-Host "Exporting solution inventory using JSON output…"
 
-            $solutions = foreach ($row in $rows) {
-              $parts = ($row -split "\s{2,}") | Where-Object { $_ }
-              if ($parts.Count -ge 4) {
-                [pscustomobject]@{
-                  UniqueName  = $parts[0]
-                  DisplayName = $parts[1]
-                  Version     = $parts[2]
-                  IsManaged   = $parts[3]
-                }
-              }
+          $solutions = pac solution list --output json | ConvertFrom-Json
+
+          $solutions = $solutions | ForEach-Object {
+            [pscustomobject]@{
+              UniqueName  = $_.uniqueName
+              DisplayName = $_.friendlyName
+              Version     = $_.version
+              IsManaged   = $_.isManaged
             }
           }
 
-          $solutions | ConvertTo-Json -Depth 10 | Out-File out/solution_inventory.json -Encoding utf8
+          $solutions | ConvertTo-Json -Depth 5 | Out-File out/solution_inventory.json -Encoding utf8
           $solutions | Export-Csv -NoTypeInformation out/solution_inventory.csv -Encoding utf8
 
-          Write-Host "Total solutions:" $solutions.Count
+          Write-Host "Total solutions found:" $solutions.Count
 
       # -------------------------------------------------
-      # 2️⃣ Optional: Export ZIPs
+      # ✅ Optional ZIP Export
       # -------------------------------------------------
       - name: Export solution ZIPs
         if: ${{ inputs.export_zips == 'true' }}
