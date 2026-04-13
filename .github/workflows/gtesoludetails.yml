@@ -1,37 +1,4 @@
-name: Export All new Solution Details (Inventory + Optional ZIPs)                --path "out/exports/$($s.UniqueName)_unmanaged.zip" `
-                --managed false `
-                --overwrite
-            }
-
-            if ("${{ inputs.export_managed }}" -eq "true") {
-              Write-Host "Exporting managed: $($s.UniqueName)"
-              pac solution export `
-                --name $s.UniqueName `
-                --path "out/exports/$($s.UniqueName)_managed.zip" `
-                --managed true `
-                --overwrite
-            }
-          }
-
-      # -------------------------------------------------
-      # Upload artifacts
-      # -------------------------------------------------
-      - name: Upload solution inventory
-        uses: actions/upload-artifact@v4
-        with:
-          name: solution-inventory
-          path: |
-            out/solutions_raw.json
-            out/solution_inventory.json
-            out/solution_inventory.csv
-
-      - name: Upload solution ZIPs
-        if: ${{ inputs.export_zips == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: solution-exports
-          path: out/exports/*.zip
-``
+name: Export All new Solution Details (Inventory + Optional ZIPs)
 
 on:
   workflow_dispatch:
@@ -150,7 +117,7 @@ jobs:
 
           if (-not ($raw.TrimStart().StartsWith("{") -or $raw.TrimStart().StartsWith("["))) {
             Write-Host "PAC did not return pure JSON. First 500 chars:"
-            Write-Host ($raw.Substring(0, [Math]::Min(500, $raw.Length)))
+            Write-Host ($raw.Substring(0, :Min(500, $raw.Length)))
             throw "PAC output is not valid JSON. Check out/solutions_raw.json artifact."
           }
 
@@ -197,3 +164,36 @@ jobs:
               Write-Host "Exporting unmanaged: $($s.UniqueName)"
               pac solution export `
                 --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_unmanaged.zip" `
+                --managed false `
+                --overwrite
+            }
+
+            if ("${{ inputs.export_managed }}" -eq "true") {
+              Write-Host "Exporting managed: $($s.UniqueName)"
+              pac solution export `
+                --name $s.UniqueName `
+                --path "out/exports/$($s.UniqueName)_managed.zip" `
+                --managed true `
+                --overwrite
+            }
+          }
+
+      # -------------------------------------------------
+      # Upload artifacts
+      # -------------------------------------------------
+      - name: Upload solution inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: solution-inventory
+          path: |
+            out/solutions_raw.json
+            out/solution_inventory.json
+            out/solution_inventory.csv
+
+      - name: Upload solution ZIPs
+        if: ${{ inputs.export_zips == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: solution-exports
+          path: out/exports/*.zip
