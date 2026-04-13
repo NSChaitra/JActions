@@ -1,4 +1,4 @@
-name: Export Solution Inventory (FINAL – AUTH FIXED)
+name: Export Solution Inventory (FINAL – AUTH FIXED FOR PAC 2.6.3)
 
 on:
   workflow_dispatch:
@@ -9,16 +9,19 @@ jobs:
 
     env:
       PP_ENV_URL: "https://org26907746.crm.dynamics.com/"
-      PP_CLIENT_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
+      PP_APPLICATION_ID: "4fec5240-fd45-408b-8276-d60c97798c49"
       PP_TENANT_ID: "db05faca-c82a-4b9d-b9c5-0f64b6755421"
       PP_CLIENT_SECRET: ${{ secrets.PASSWORD }}
 
     steps:
+      # ----------------------------------
+      # Checkout
+      # ----------------------------------
       - uses: actions/checkout@v4
 
-      # ----------------------------
+      # ----------------------------------
       # Install PAC CLI
-      # ----------------------------
+      # ----------------------------------
       - name: Install PAC CLI
         shell: pwsh
         run: |
@@ -26,37 +29,33 @@ jobs:
           "$env:USERPROFILE\.dotnet\tools" |
             Out-File $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # ----------------------------
-      # Authenticate (profile still created)
-      # ----------------------------
+      # ----------------------------------
+      # Verify PAC
+      # ----------------------------------
+      - name: Verify PAC
+        shell: pwsh
+        run: |
+          pac help
+
+      # ----------------------------------
+      # ✅ AUTHENTICATION (CORRECT FOR v2.6.3)
+      # ----------------------------------
       - name: Authenticate to Power Platform
         shell: pwsh
         run: |
           pac auth create `
             --url "$env:PP_ENV_URL" `
             --tenant "$env:PP_TENANT_ID" `
-            --clientId "$env:PP_CLIENT_ID" `
+            --applicationId "$env:PP_APPLICATION_ID" `
             --clientSecret "$env:PP_CLIENT_SECRET"
 
           pac auth list
 
-      # ----------------------------
-      # ✅ INVENTORY (PROFILE BYPASS)
-      # ----------------------------
-      - name: Export solution inventory
+      # ----------------------------------
+      # ✅ SOLUTION LIST (NOW WORKS)
+      # ----------------------------------
+      - name: Export solution list
         shell: pwsh
-        continue-on-error: true
         run: |
           pac solution list `
             --environment "$env:PP_ENV_URL" `
-            --includeSystemSolutions `
-            > out_solutions_raw.txt
-
-      # ----------------------------
-      # Upload RAW output (this WILL now contain solutions)
-      # ----------------------------
-      - name: Upload inventory
-        uses: actions/upload-artifact@v4
-        with:
-          name: solution-inventory
-          path: out_solutions_raw.txt
