@@ -1,0 +1,131 @@
+name: Create Dev Environment + Welcome Mail
+
+on:
+  workflow_dispatch:
+    inputs:
+      requesterEmail:
+        description: "Requester email"
+        required: true
+      envDisplayName:
+        description: "Environment display name"
+        required: true
+
+jobs:
+  provision:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # 1) Create Environment (placeholder)
+      # Replace with your actual env creation steps
+      # -----------------------------
+      - name: Set environment outputs (sample)
+        id: envout
+        shell: pwsh
+        run: |
+          # In your real workflow, capture actual values from creation step
+          $envName = "${{ inputs.envDisplayName }}"
+          $envId   = "00000000-0000-0000-0000-000000000000"
+          $envUrl  = "https://org123.crm.dynamics.com"
+          "envName=$envName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "envId=$envId"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "envUrl=$envUrl"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # -----------------------------
+      # 2) Get Graph token (Client Credentials)
+      # -----------------------------
+      - name: Get Graph Access Token
+        id: token
+        shell: pwsh
+        env:
+          tenant-id: 'db05faca-c82a-4b9d-b9c5-0f64b6755421'
+          app-id: '4fec5240-fd45-408b-8276-d60c97798c49'
+          client-secret: ${{ secrets.PASSWORD }}
+        run: |
+          $body = @{
+            client_id     = $env:CLIENT_ID
+            scope         = "https://graph.microsoft.com/.default"
+            client_secret = $env:CLIENT_SECRET
+            grant_type    = "client_credentials"
+          }
+
+          $tokenResponse = Invoke-RestMethod -Method Post `
+            -Uri "https://login.microsoftonline.com/$($env:TENANT_ID)/oauth2/v2.0/token" `
+            -ContentType "application/x-www-form-urlencoded" `
+            -Body $body
+
+          "accessToken=$($tokenResponse.access_token)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      # -----------------------------
+      # 3) Send Welcome Mail via Graph
+      # -----------------------------
+      - name: Send Welcome Email
+        shell: pwsh
+        env:
+          ACCESS_TOKEN: ${{ steps.token.outputs.accessToken }}
+          MAIL_FROM:    ${{ secrets.MAIL_FROM }}
+          MAIL_CC:      ${{ secrets.MAIL_CC }}
+          TO_EMAIL:     ${{ inputs.requesterEmail }}
+          ENV_NAME:     ${{ steps.envout.outputs.envName }}
+          ENV_ID:       ${{ steps.envout.outputs.envId }}
+          ENV_URL:      ${{ steps.envout.outputs.envUrl }}
+        run: |
+          $subject = "✅ Your Power Platform Developer Environment is ready: $($env:ENV_NAME)"
+
+          $html = @"
+          <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;">
+            <p>Hi,</p>
+            <p>Your <b>Power Platform Developer Environment</b> has been created successfully.</p>
+
+            <table style="border-collapse:collapse;">
+              <tr><td style="padding:6px 12px;border:1px solid #ddd;"><b>Environment Name</b></td><td style="padding:6px 12px;border:1px solid #ddd;">$($env:ENV_NAME)</td></tr>
+              <tr><td style="padding:6px 12px;border:1px solid #ddd;"><b>Environment ID</b></td><td style="padding:6px 12px;border:1px solid #ddd;">$($env:ENV_ID)</td></tr>
+              <tr><td style="padding:6px 12px;border:1px solid #ddd;"><b>Environment URL</b></td><td style="padding:6px 12px;border:1px solid #ddd;">$($env:ENV_URL)$($env:ENV_URL)</a></td></tr>
+            </table>
+
+            <p style="margin-top:16px;"><b>Next steps</b>:</p>
+            <ol>
+              <li>Open the environment: $($env:ENV_URL)$($env:ENV_URL)</a></li>
+              <li>Create your solution and use ALM best practices (solutions + environment variables + connection references).</li>
+              <li>Reach out to the Power Platform support team if you need connectors / DLP approvals.</li>
+            </ol>
+
+            <p>Thanks,<br/>Power Platform Admin Team</p>
+          </div>
+"@
+
+          $toRecipients = @(@{ emailAddress = @{ address = $env:TO_EMAIL } })
+
+          $ccRecipients = @()
+          if ($env:MAIL_CC -and $env:MAIL_CC.Trim() -ne "") {
+            $ccRecipients = @(@{ emailAddress = @{ address = $env:MAIL_CC } })
+          }
+
+          $payload = @{
+            message = @{
+              subject = $subject
+              body    = @{
+                contentType = "HTML"
+                content     = $html
+              }
+              toRecipients = $toRecipients
+              ccRecipients = $ccRecipients
+            }
+            saveToSentItems = $true
+          } | ConvertTo-Json -Depth 10
+
+          $headers = @{
+            Authorization = "Bearer $($env:ACCESS_TOKEN)"
+            "Content-Type" = "application/json"
+          }
+
+          $sendAs = $env:MAIL_FROM
+          Invoke-RestMethod -Method Post `
+            -Uri "https://graph.microsoft.com/v1.0/users/$sendAs/sendMail" `
+            -Headers $headers `
+            -Body $payload
+
+          Write-Host "✅ Welcome email sent to $($env:TO_EMAIL)"
