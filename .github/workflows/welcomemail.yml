@@ -95,7 +95,7 @@ jobs:
 
             <p>Thanks,<br/>Power Platform Admin Team</p>
           </div>
-"@
+
 
           $toRecipients = @(@{ emailAddress = @{ address = $env:TO_EMAIL } })
 
